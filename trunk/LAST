@@ -1,0 +1,4 @@
+tags: [1]work on "to roster" answers, [2]help should be a more helpful, [3]fixes, [4]bugfixes, [5]new features, [6]trailing spaces was stripped
+
+>>> trans_plugin.py - [4]full rewrite. now trans_plugin.py uses JSON API (part of AJAX API). YOU NEED Python 2.6.x or simplejson module installed to use this plugin!!! dont forget to update your translate macroses (due to syntax change) [2][5]
+>>> google_plugin.py - [4]correct error reporting
