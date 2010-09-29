@@ -1,12 +1,6 @@
-# -*- coding: iso-8859-15 -*-
-# Copyright (C) 2002-2004  Tobias Klausmann
-# Modifications Copyright (C) 2002 by Jerome Alet
-# 
-# Code contributed by:
-# Jerome Alet 
-# Davide Di Blasi
-# Adrian Holovaty
-# Tim Middleton
+# -*- coding: utf8 -*-
+"""This is just here to make pylint happy """
+# Copyright (C) 2002-2010  Tobias Klausmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,26 +15,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330 Boston, MA
-#
-# By reading this code you agree not to ridicule the author =)
-
-# When reading this code you'll noctice that not everything is parsed
-# from the raw METAR info as supplied with the report. Before you start
-# flaming the authors, please read the FHM-1 spec and guess how hairy a
-# parser for that format would be. As a side note, the reference 
-# implementation of the parser is written in... FORTRAN. Now stop crying.
 
 import fpformat
 import math
 import re
-import string
 import urllib2
 
 __author__ = "klausman-pymetar@schwarzvogel.de"
 
-__version__ = "0.12"
+__version__ = "0.16"
+__revision__ = "$Rev: 106 $"[6:-2]
 
-__doc__ = """Pymetar v%s (c) 2002-2004 Tobias Klausmann
+__doc__ = """Pymetar v%s (c) 2002-2010 Tobias Klausmann
 
 Pymetar is a python module and command line tool designed to fetch Metar
 reports from the NOAA (http://www.noaa.gov) and allow access to the
@@ -63,26 +49,26 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 Please e-mail bugs to: %s""" % (__version__, __author__)
 
 
-CLOUD_RE_STR= r"^(CLR|SKC|BKN|SCT|FEW|OVC)([0-9]{3})?$"
-COND_RE_STR = r"^(-|\\+)?(VC|MI|BC|PR|TS|BL|SH|DR|FZ)?(DZ|RA|SN|SG|IC|PE|GR|GS|UP|BR|FG|FU|VA|SA|HZ|PY|DU|SQ|SS|DS|PO|\\+?FC)$"
+CLOUD_RE_STR = r"^(CAVOK|CLR|SKC|BKN|SCT|FEW|OVC|NSC)([0-9]{3})(TCU|CU|CB|SC|CBMAM|ACC|SCSL|CCSL|ACSL)?$"
+CTYPE_RE_STR = r"^(TCU|CU|CB|SC|CBMAM|ACC|SCSL|CCSL|ACSL)?$"
+COND_RE_STR  = r"^(-|\\+)?(VC|MI|BC|PR|TS|BL|SH|DR|FZ)?(DZ|RA|SN|SG|IC|PE|GR|GS|UP|BR|FG|FU|VA|SA|HZ|PY|DU|SQ|SS|DS|PO|\\+?FC)$"
 
 class EmptyReportException(Exception):
-    def __init__(self, args=None):
-        self.args=args
-
+    """This gets thrown when the ReportParser gets fed an empty report"""
+    pass
 class EmptyIDException(Exception):
-    def __init__(self, args=None):
-        self.args=args
+    """This gets thrown when the ReportFetcher is called with an empty ID"""
+    pass
 
 class NetworkException(Exception):
-    def __init__(self, args=None):
-        self.args=args
+    """This gets thrown when a network error occurs"""
+    pass
 
 # What a boring list to type !
 #
 # It seems the NOAA doesn't want to return plain text, but considering the
 # format of their response, this is not to save bandwidth :-)
-#
+
 _WeatherConditions = {
                       "DZ" : ("Drizzle", "rain", {
                                "" :   "Moderate drizzle",
@@ -371,6 +357,69 @@ _WeatherConditions = {
                              }),
                     }
 
+CLOUDTYPES = { 
+               "ACC": "altocumulus castellanus",
+               "ACSL": "standing lenticular altocumulus",
+               "CB": "cumulonimbus",
+               "CBMAM": "cumulonimbus mammatus",
+               "CCSL": "standing lenticular cirrocumulus",
+               "CU": "cumulus",
+               "SCSL": "standing lenticular stratocumulus",
+               "SC": "stratocumulus",
+               "TCU": "towering cumulus"
+}
+
+
+def metar_to_iso8601(metardate) :
+    """Convert a metar date to an ISO8601 date."""
+    if metardate is not None:
+        (date, hour) = metardate.split()[:2]
+        (year, month, day) = date.split('.')
+        # assuming tz is always 'UTC', aka 'Z'
+        return "%s-%s-%s %s:%s:00Z" % \
+            (year, month, day, hour[:2], hour[2:4])
+
+def parseLatLong(latlong):
+    """
+    Parse Lat or Long in METAR notation into float values. N and E 
+    are +, S and W are -. Expects one positional string and returns 
+    one float value.
+    """
+    # I know, I could invert this if and put
+    # the rest of the function into its block,
+    # but I find it to be more readable this way
+    if latlong is None: 
+        return None
+
+    s = latlong.upper().strip()
+    elms = s.split('-')
+    ud = elms[-1][-1]
+    elms[-1] = elms[-1][:-1]
+    elms = [int(i) for i in elms]
+    coords = 0.0
+    elen = len(elms)
+    if elen > 2:
+        coords = coords + float(elms[2])/3600.0
+
+    if elen > 1:
+        coords = coords + float(elms[1])/60.0
+
+    coords = coords + float(elms[0])
+
+    if ud in ('W', 'S'):
+        coords = -1.0*coords
+
+    f, i = math.modf(coords)
+
+    if elen > 2:
+        f = float(fpformat.sci(f, 4))
+    elif elen > 1:
+        f = float(fpformat.sci(f, 2))
+    else:
+        f = 0.0
+
+    return f+i
+
 class WeatherReport:
     """Incorporates both the unparsed textual representation of the
     weather report and the parsed values as soon as they are filled 
@@ -381,46 +430,44 @@ class WeatherReport:
         # until finished, report is invalid
         self.valid = 0
         # Clear all
-        self.givenstationid=None
-        self.fullreport=None
-        self.temp=None
-        self.tempf=None
-        self.windspeed=None
-        self.winddir=None
-        self.vis=None
-        self.dewp=None
-        self.dewpf=None
-        self.humid=None
-        self.press=None
-        self.code=None
-        self.weather=None
-        self.sky=None
-        self.fulln=None
-        self.cycle=None
-        self.windcomp=None
-        self.rtime=None
-        self.pixmap=None
-        self.latitude=None
-        self.longitude=None
-        self.altitude=None
-        self.stat_city=None
-        self.stat_country=None
-        self.reporturl=None
-        self.latf=None
-        self.longf=None
+        self.givenstationid = None
+        self.fullreport = None
+        self.temp = None
+        self.tempf = None
+        self.windspeed = None
+        self.windspeedmph = None
+        self.winddir = None
+        self.vis = None
+        self.dewp = None
+        self.dewpf = None
+        self.humid = None
+        self.press = None
+        self.code = None
+        self.weather = None
+        self.sky = None
+        self.fulln = None
+        self.cycle = None
+        self.windcomp = None
+        self.rtime = None
+        self.pixmap = None
+        self.latitude = None
+        self.longitude = None
+        self.altitude = None
+        self.stat_city = None
+        self.stat_country = None
+        self.reporturl = None
+        self.latf = None
+        self.longf = None
+        self.cloudinfo = None
+        self.conditions = None
+        self.w_chill = None
+        self.w_chillf = None
+        self.cloudtype = None
 
     def __init__(self, MetarStationCode = None):
         """Clear all fields and fill in wanted station id."""
         self._ClearAllFields()
-        self.givenstationid=MetarStationCode
-
-    def metar_to_iso8601(self, metardate) :
-        """Convert a metar date to an ISO8601 date."""
-        if metardate is not None:
-            (date, hour, tz) = metardate.split()
-            (year, month, day) = date.split('.')
-            # assuming tz is always 'UTC', aka 'Z'
-            return "%s-%s-%s %s:%s:00Z"%(year, month, day, hour[:2], hour[2:4])
+        self.givenstationid = MetarStationCode
 
     def getFullReport(self):
         """ Return the complete weather report.  """
@@ -461,7 +508,22 @@ class WeatherReport:
         Return the wind speed in miles per hour.
         """
         if self.windspeed is not None:
-            return self.windspeed * 2.237
+            return self.windspeedmph
+
+    def getWindSpeedBeaufort(self):
+        """
+        Return the wind speed in the Beaufort scale
+        cf. http://en.wikipedia.org/wiki/Beaufort_scale
+        """
+        if self.windspeed is not None:
+            return round(math.pow(self.windspeed/0.8359648, 2/3.0))
+
+    def getWindSpeedKnots(self):
+        """
+        Return the wind speed in knots
+        """
+        if self.windspeed is not None:
+            return self.windspeedknots
 
     def getWindDirection(self):
         """
@@ -572,9 +634,9 @@ class WeatherReport:
     def getStationPositionFloat(self):
         """
         Return latitude and longitude as float values in a 
-        tuple (lat,long,alt).
+        tuple (lat, long, alt).
         """
-        return (self.latf,self.longf,self.altitude)
+        return (self.latf, self.longf, self.altitude)
 
     def getStationLatitude(self) :
         """
@@ -634,7 +696,7 @@ class WeatherReport:
         Return the time when the observation was made in ISO 8601 format
         (e.g. 2002-07-25 15:12:00Z)
         """
-        return(self.metar_to_iso8601(self.rtime))
+        return(metar_to_iso8601(self.rtime))
 
     def getPixmap(self):
         """
@@ -643,41 +705,96 @@ class WeatherReport:
         """
         return self.pixmap
 
+    def getCloudinfo(self):
+        """
+        Return a tuple consisting of the parsed cloud information and a
+        suggest pixmap name
+        """
+        return self.cloudinfo
+
+    def getConditions(self):
+        """
+        Return a tuple consisting of the parsed sky conditions and a
+        suggested pixmap name
+        """
+        return self.conditions
+
+    def getWindchill(self):
+        """
+        Return wind chill in degrees Celsius
+        """
+        # I've had two choices here: simply convert the Fahrenheit windchill (see below)
+        # or calculate it seperately if needed. I chose the latter for accuracy reasons
+        if self.w_chill ==  None:
+            if  self.temp and self.temp < 10 and \
+                self.windspeed and (self.windspeed*3.6) > 4.8:
+                self.w_chill = 13.12 + 0.6215*self.temp - 11.37*(self.windspeed*3.6)**0.16\
+                                 + 0.3965*self.temp*(self.windspeed*3.6)**0.16
+        return self.w_chill
+
+    def getWindchillF(self):
+        """
+        Return wind chill in degrees Fahrenheit
+        """
+        # This code is derived from NOAA's test on the topic, put into code (and donated)
+        # by Alexander Voronin
+        if self.w_chillf == None:
+            if  self.tempf and self.tempf <= 50 and \
+                self.windspeedmph and self.windspeedmph >= 3:
+                self.w_chillf = 35.74 + 0.6215*self.tempf - 35.75*self.windspeedmph**0.16 + \
+                                0.4275*self.tempf*self.windspeedmph**0.16
+            else:
+                self.w_chillf = self.tempf
+
+        return self.w_chillf
+
+    def getCloudtype(self):
+        """
+        Return cloud type information
+        """
+        return self.cloudtype
+
+
 
 class ReportParser:
     """Parse raw METAR data from a WeatherReport object into actual 
     values and return the object with the values filled in."""
 
-    def __init__(self, MetarReport=None):
+    def __init__(self, MetarReport = None):
         """Set attribute Report as specified on instantation."""
-        self.Report=MetarReport
-
-    def strreverse(self, str):
-        """Reverse a string"""
-        listr=list(str)
-        listr.reverse()
-        return "".join(listr)
+        self.Report = MetarReport
 
     def extractCloudInformation(self) :
         """
         Extract cloud information. Return None or a tuple (sky type as a
-        string of text and suggested pixmap name)
+        string of text, cloud type (if any)  and suggested pixmap name)
         """   
-        wcloud = self.match_WeatherPart(CLOUD_RE_STR)
-        if wcloud is not None :
-            stype = wcloud[:3]
-            if (stype == "CLR") or (stype == "SKC") :
-                return ("Clear sky", "sun")
-            elif stype == "BKN" :
-                return ("Broken clouds", "suncloud")
-            elif stype == "SCT" :
-                return ("Scattered clouds", "suncloud")
-            elif stype == "FEW" :
-                return ("Few clouds", "suncloud")
-            elif stype == "OVC" :
-                return ("Overcast", "cloud")
-        else:
-            return None # Not strictly necessary
+        matches = self.match_WeatherPart(CLOUD_RE_STR)
+        skytype = None
+        ctype = None
+        pixmap = None
+        for wcloud in matches:
+            if wcloud is not None:
+                stype = wcloud[:3]
+                if stype in ("CLR", "SKC", "CAV", "NSC"):
+                    skytype="Clear sky"
+                    pixmap="sun"
+                elif stype == "BKN" :
+                    skytype="Broken clouds"
+                    pixmap="suncloud"
+                elif stype == "SCT" :
+                    skytype="Scattered clouds"
+                    pixmap="suncloud"
+                elif stype == "FEW" :
+                    skytype="Few clouds"
+                    pixmap="suncloud"
+                elif stype == "OVC" :
+                    skytype="Overcast"
+                    pixmap="cloud"
+                if ctype == None:
+                    ctype = CLOUDTYPES.get(wcloud[6:], None)
+
+        return (skytype, ctype, pixmap)
 
     def extractSkyConditions(self) :
         """
@@ -686,9 +803,10 @@ class ReportParser:
         string and a suggested pixmap name for an icon representing said 
         sky condition.
         """
-        wcond = self.match_WeatherPart(COND_RE_STR)
-        if wcond is not None :
-            if (len(wcond)>3) and (wcond.startswith('+') or wcond.startswith('-')) :
+        matches = self.match_WeatherPart(CTYPE_RE_STR)
+        for wcond in matches:
+            if (len(wcond)>3) and (wcond.startswith('+') \
+                or wcond.startswith('-')) :
                 wcond = wcond[1:]
             if wcond.startswith('+') or wcond.startswith('-') :
                 pphen = 1
@@ -716,54 +834,16 @@ class ReportParser:
         WARNING: Some Metar reports may contain several matching 
         strings, only the first one is taken into account!
         """
+        matches=[]
         if self.Report.code is not None :
             rg = re.compile(regexp)
             for wpart in self.Report.getRawMetarCode().split() :
                 match = rg.match(wpart)
                 if match:
-                    return match.string[match.start(0) : match.end(0)]
+                    matches.append(match.string[match.start(0) : match.end(0)])
+        return matches
 
-    def parseLatLong(self, latlong):
-        """
-        Parse Lat or Long in METAR notation into float values. N and E 
-        are +, S and W are -. Expects one positional string and returns 
-        one float value.
-        """
-        # I know, I could invert this if and put
-        # the rest of the function into its block,
-        # but I find it to be more readable this way
-        if latlong is None: return None
-
-        s=latlong.upper().strip()
-        elms = s.split('-')
-        ud = elms[-1][-1]
-        elms[-1] = elms[-1][:-1]
-        elms = map(string.atoi, elms)
-        coords = 0.0
-        elen = len(elms)
-        if elen > 2:
-            coords = coords + float(elms[2])/3600.0
-
-        if elen > 1:
-            coords = coords + float(elms[1])/60.0
-
-        coords = coords + float(elms[0])
-
-        if ud in ('W','S'):
-            coords = -1.0*coords
-
-        f,i = math.modf(coords)
-
-        if elen > 2:
-            f = float(fpformat.sci(f,4))
-        elif elen > 1:
-            f = float(fpformat.sci(f,2))
-        else:
-            f = 0.0
-
-        return f+i
-
-    def ParseReport(self, MetarReport=None):
+    def ParseReport(self, MetarReport = None):
         """Take report with raw info only and return it with in 
         parsed values filled in. Note: This function edits the
         WeatherReport object you supply!"""
@@ -771,139 +851,173 @@ class ReportParser:
             raise EmptyReportException, \
                 "No report given on init and ParseReport()."
         elif MetarReport is not None:
-            self.Report=MetarReport
+            self.Report = MetarReport
 
-        lines=self.Report.fullreport.split("\n")
+        lines = self.Report.fullreport.split("\n")
 
         for line in lines:
             try:
-                header, data=line.split(":",1)
+                header, data = line.split(":", 1)
             except ValueError:
-                header=data=line
+                header = data = line
 
-            header=header.strip()
-            data=data.strip()
+            header = header.strip()
+            data = data.strip()
 
             # The station id inside the report
-            if header.find("("+self.Report.givenstationid+")")!=-1:
+            # As the station line may contain additional sets of (),
+            # we have to search from the rear end and flip things around
+            if header.find("("+self.Report.givenstationid+")") != -1:
+                id_offset = header.find("("+self.Report.givenstationid+")")
+                loc = data[:id_offset]
+                p = data[id_offset:]
                 try:
-                    loc,p=data.split("(",1)
-                    loc=loc.strip()
-                    rloc=self.strreverse(loc)
-                    rcoun,rcity=rloc.split(",",1)
+                    loc = loc.strip()
+                    rloc = loc[::-1]
+                    rcoun, rcity = rloc.split(",", 1)
                 except ValueError:
-                    city=""
-                    coun=""
-                    p=data
+                    rcity = ""
+                    rcoun = ""
+                    p = data
                 try:
-                    id,lat,long,ht=p.split()
-                    ht=int(ht[:-1]) # cut off 'M' for meters
+                    lat, lng, ht = p.split()[1:4]
+                    ht = int(ht[:-1]) # cut off 'M' for meters
                 except ValueError:
-                    id,lat,long=p.split()
-                    ht=None
-                self.Report.stat_city=self.strreverse(rcity.strip())
-                self.Report.stat_country=self.strreverse(rcoun.strip())
-                self.Report.fulln=loc
-                self.Report.latitude=lat
-                self.Report.longitude=long
-                self.Report.latf=self.parseLatLong(lat)
-                self.Report.longf=self.parseLatLong(long)
-                self.Report.altitude=ht
+                    (lat, lng) = p.split()[1:3]
+                    ht = None
+                # A few jokers out there think O==0
+                if "O" in lat:
+                    lat=lat.replace("O", "0")
+                if "O" in lng:
+                    lng=lng.replace("O", "0")
 
-            # The line containing date and timr of the report
+                self.Report.stat_city = rcity.strip()[::-1]
+                self.Report.stat_country = rcoun.strip()[::-1]
+                self.Report.fulln = loc
+                self.Report.latitude = lat
+                self.Report.longitude = lng
+                self.Report.latf = parseLatLong(lat)
+                self.Report.longf = parseLatLong(lng)
+                self.Report.altitude = ht
 
-            elif (data.find("UTC"))!=-1:
-                local,rt=data.split("/")
-                self.Report.rtime=rt.strip()
+            # The line containing date and time of the report
+            # We have to make sure that the station ID is *not*
+            # in this line to avoid trying to parse the ob: line
+            elif ((data.find(" UTC")) != -1 and \
+                    (data.find(self.Report.givenstationid)) == -1):
+                rt = data.split("/")[1]
+                self.Report.rtime = rt.strip()
 
             # temperature
 
             elif (header == "Temperature"):
-                f,i,c,i=data.split(None,3)
-                self.Report.tempf=float(f)
+                f, c = data.split(None, 3)[0:3:2]
+                self.Report.tempf = float(f)
                 # The string we have split is "(NN C)", hence the slice
-                self.Report.temp=float(c[1:])
+                self.Report.temp = float(c[1:])
+            
+            # wind chill
 
+            elif (header == "Windchill"):
+                f, c = data.split(None, 3)[0:3:2]
+                self.Report.w_chillf = float(f)
+                # The string we have split is "(NN C)", hence the slice
+                self.Report.w_chill = float(c[1:])
 
             # wind dir and speed
             
             elif (header == "Wind"):
-                if (data.find("Calm")!=-1):
-                    self.Report.windspeed=0.0
-                    self.Report.winddir=None
-                    self.Report.windcomp=None
-                elif (data.find("Variable")!=-1):
-                    v,a,speed,r=data.split(" ",3)
-                    self.Report.windspeed=(float(speed)*0.44704)
-                    self.Report.winddir=None
-                    self.Report.windcomp=None
+                if (data.find("Calm") != -1):
+                    self.Report.windspeed = 0.0
+                    self.Report.windspeedkt = 0.0
+                    self.Report.windspeedmph = 0.0
+                    self.Report.winddir = None
+                    self.Report.windcomp = None
+                elif (data.find("Variable") != -1):
+                    speed = data.split(" ", 3)[2]
+                    self.Report.windspeed = (float(speed)*0.44704)
+                    self.Report.windspeedkt = int(data.split(" ", 5)[4][1:])
+                    self.Report.windspeedmph = int(speed)
+                    self.Report.winddir = None
+                    self.Report.windcomp = None
                 else:
-                    f,t,comp,deg,r,d,speed,r=data.split(" ",7)
-                    self.Report.winddir=int(deg[1:])
-                    self.Report.windcomp=comp.strip()
-                    self.Report.windspeed=(float(speed)*0.44704)
+                    fields = data.split(" ", 9)[0:9]
+                    f = fields[0]
+                    comp = fields[2]
+                    deg = fields[3]
+                    speed = fields[6]
+                    speedkt = fields[8][1:]
+                    del fields
+                    self.Report.winddir = int(deg[1:])
+                    self.Report.windcomp = comp.strip()
+                    self.Report.windspeed = (float(speed)*0.44704)
+                    self.Report.windspeedkt = (int(speedkt))
+                    self.Report.windspeedmph = int(speed)
 
             # visibility
 
             elif (header == "Visibility"):
                 for d in data.split():
                     try:
-                        self.Report.vis=float(d)*1.609344
+                        self.Report.vis = float(d)*1.609344
                         break
                     except ValueError:
-                        pass
+                        self.Report.vis = None
+                        break
 
             # dew point
             
             elif (header == "Dew Point"):
-                f,i,c,i=data.split(None,3)
-                self.Report.dewpf=float(f)
+                f, c = data.split(None, 3)[0:3:2]
+                self.Report.dewpf = float(f)
                 # The string we have split is "(NN C)", hence the slice
-                self.Report.dewp=float(c[1:])
+                self.Report.dewp = float(c[1:])
 
             # humidity
              
             elif (header == "Relative Humidity"):
-                h,i=data.split("%",1)
-                self.Report.humid=int(h)
+                h = data.split("%", 1)[0]
+                self.Report.humid = int(h)
 
             # pressure
             
             elif (header == "Pressure (altimeter)"):
-                p,r=data.split(" ",1)
-                self.Report.press=(float(p)*33.863886)
+                p = data.split(" ", 1)[0]
+                self.Report.press = (float(p)*33.863886)
 
             # shot weather desc. ("rain", "mist", ...)
             
             elif (header == "Weather"):
-                self.Report.weather=data
+                self.Report.weather = data
 
             # short desc. of sky conditions
 
             elif (header == "Sky conditions"):
-                self.Report.sky=data
+                self.Report.sky = data
 
             # the encoded report itself
             
             elif (header == "ob"):
-                self.Report.code=data.strip()
+                self.Report.code = data.strip()
 
             # the cycle value ("time slot")
 
             elif (header == "cycle"):
-                self.Report.cycle=int(data)
+                self.Report.cycle = int(data)
 
         # cloud info
         cloudinfo = self.extractCloudInformation()
-        if cloudinfo is not None :
-            (cloudinfo, cloudpixmap) = cloudinfo
-        else :
-            (cloudinfo, cloudpixmap) = (None, None)
+        (cloudinfo, cloudtype, cloudpixmap) = cloudinfo
+
         conditions = self.extractSkyConditions()
         if conditions is not None :
             (conditions, condpixmap) = conditions
         else :
             (conditions, condpixmap) = (None, None)
+
+        # Some people might want to always use sky or cloud info specifially
+        self.Report.cloudinfo = (cloudinfo, cloudpixmap)
+        self.Report.conditions = (conditions, condpixmap)
 
         # fill the weather information
         self.Report.weather = self.Report.weather or conditions or cloudinfo
@@ -911,6 +1025,10 @@ class ReportParser:
         # Pixmap guessed from general conditions has priority
         # over pixmap guessed from clouds
         self.Report.pixmap = condpixmap or cloudpixmap
+
+        # Cloud type (Cumulonimbus etc.)
+        if self.Report.cloudtype == None:
+            self.Report.cloudtype = cloudtype
 
         # report is complete
         self.Report.valid = 1
@@ -922,12 +1040,27 @@ class ReportFetcher:
        account a different baseurl and using environment var-specified 
        proxies."""
 
-    def __init__(self, MetarStationCode=None, baseurl="http://weather.noaa.gov/pub/data/observations/metar/decoded/"):
+    def __init__(self, MetarStationCode = None, baseurl = \
+        "http://weather.noaa.gov/pub/data/observations/metar/decoded/"):
         """Set stationid attribute and base URL to fetch report from"""
-        self.stationid=MetarStationCode
-        self.baseurl=baseurl
+        self.stationid = MetarStationCode
+        self.baseurl = baseurl
 
-    def FetchReport(self, StationCode=None, proxy=None):
+    def MakeReport(self, StationID, RawReport):
+        """
+        Take a string (RawReport) and a station code and turn it
+        into an object suitable for ReportParser
+        """
+        self.reporturl = "%s%s.TXT" % (self.baseurl, StationID)
+        self.fullreport = RawReport
+        report = WeatherReport(StationID)
+        report.reporturl = self.reporturl
+        report.fullreport = self.fullreport
+        self.report = report # Caching it for GetReport()
+
+        return report
+
+    def FetchReport(self, StationCode = None, proxy = None):
         """
         Fetch a report for a given station ID from the baseurl given
         upon creation of the ReportFetcher instance.
@@ -942,14 +1075,14 @@ class ReportFetcher:
             raise EmptyIDException, \
                 "No ID given on init and FetchReport()."
         elif StationCode is not None:
-            self.stationid=StationCode
+            self.stationid = StationCode
 
-        self.stationid=self.stationid.upper()
-        self.reporturl="%s%s.TXT" % (self.baseurl, self.stationid)
+        self.stationid = self.stationid.upper()
+        self.reporturl = "%s%s.TXT" % (self.baseurl, self.stationid)
         
         if proxy:
-            p_dict={'http': proxy}
-            p_handler=urllib2.ProxyHandler(p_dict)
+            p_dict = {'http': proxy}
+            p_handler = urllib2.ProxyHandler(p_dict)
             opener = urllib2.build_opener(p_handler, urllib2.HTTPHandler)
             urllib2.install_opener(opener)
         else:
@@ -957,20 +1090,24 @@ class ReportFetcher:
                 urllib2.build_opener(urllib2.ProxyHandler, urllib2.HTTPHandler))
 
         try:
-            fn=urllib2.urlopen(self.reporturl)
+            fn = urllib2.urlopen(self.reporturl)
         except urllib2.HTTPError, why:
             raise NetworkException, why
 
         # Dump entire report in a variable
-        self.fullreport=fn.read()
+        self.fullreport = fn.read()
 
         if fn.info().status:
             raise NetworkException, "Could not fetch METAR report"
             
-        report=WeatherReport(self.stationid)
-        report.reporturl=self.reporturl
-        report.fullreport=self.fullreport
+        report = WeatherReport(self.stationid)
+        report.reporturl = self.reporturl
+        report.fullreport = self.fullreport
+        self.report = report # Caching it for GetReport()
 
         return report
         
+    def GetReport(self):
+        """Get a previously fetched report again"""
+        return self.report
 
