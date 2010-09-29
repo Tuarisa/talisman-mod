@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 #  Talisman plugin
-#  weather_plugin.py
+#  weather_plugin.py	
 
 #  Initial Copyright © 2002-2005 Mike Mintz <mikemintz@gmail.com>
 #  Modifications Copyright © 2007 Als <Als@exploru.net>
+#  Modifications Copyright © 2010 Tuarisa <Tuarisa@gmail.com>
 
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,6 +22,7 @@ import pymetar
 
 WEATHERCODE_FILE = 'static/weather.txt'
 
+
 def handler_weather_weather(type, source, parameters):
 	if not parameters:
 		reply(type, source, u'ииии?')
@@ -29,38 +31,73 @@ def handler_weather_weather(type, source, parameters):
 		rf=pymetar.ReportFetcher(parameters.strip())
 		fr=rf.FetchReport()
 	except Exception, ex:
-		results = u'а если ли такой код?'
-		return
+		parameters = return_code(parameters).split(' ')[0]
+		try:
+			rf=pymetar.ReportFetcher(parameters.strip())
+			fr=rf.FetchReport()	
+		except Exception, ex:
+			results = u'а если ли такой код?'
+#			reply(type, source, u'А оно есть?')
+			return	
 	rp=pymetar.ReportParser()
 	pr=rp.ParseReport(fr)
 	tm=time.strptime(pr.getISOTime(), '%Y-%m-%d %H:%M:%SZ')
-	tm=time.strftime('%H:%M:%S',tm)
-	rep = u'погода в %s (%s) на %s\n%s, temperature: %s° C, humidity: %s%%, ' %(pr.getStationName(), parameters.strip(), tm, pr.getWeather(), pr.getTemperatureCelsius(), pr.getHumidity())
+	tm=time.mktime(tm)
+	tmn=time.mktime(time.gmtime())
+	tm=tmn-tm
+	tm=timeElapsed(tm)
+	rep = u'погода в %s (%s) %s назад\n%s, температура: %s° C, влажность: %s%%, ' %(pr.getStationName(), parameters.strip(), tm, pr.getWeather(), pr.getTemperatureCelsius(), pr.getHumidity())
 	if pr.getWindSpeed():
-		rep+='wind: %s, ' %(pr.getWindSpeed())
+		rep+=u'ветер: %s м/с, ' %(int(round(pr.getWindSpeed())))
 	if pr.getPressure():
-		rep+='pressure: %s, ' %(pr.getPressure())
-	rep+='sky conditions: %s' %(pr.getSkyConditions())
+		press = pr.getPressure()
+		press  = 0.7500616 * press
+		pres = int(round(press))
+		rep+=u'давление: %s мм.рт.ст., ' %(pres)
+	rep+=u'облачность: %s' %(pr.getSkyConditions())
 	reply(type, source, rep)
+	station = pr.getStationName()
+	temp = return_code(parameters)
+	if (temp == u'хз'):
+		f=open(WEATHERCODE_FILE, 'a')
+		f.write('%s => %s\n' %(parameters, station))
+		f.close()
 
-def handler_weather_weathercode(type, source, parameters):
+def return_code(parameters):
 	if not parameters:
-		reply(type, source, u'чё-то ты не то написал...')
-		return
+		return (u'чё-то ты не то написал...')
 	if len(parameters)<=2:
-		reply(type, source, u'какая-то фигня...')
-		return
+		return (u'какая-то фигня...')
 	results = ''
 	query = string.lower(parameters)
 	fp = open(WEATHERCODE_FILE, 'r')
 	lines = fp.readlines()
 	for line in lines:
+		line = line.decode('utf8')
 		if string.count(string.lower(line), query):
-			results += string.split(line, '=> ')[0]
+			results += string.split(line, u'=> ')[0]
 	if results:
-		reply(type, source, results)
+		return (results)
 	else:
-		reply(type, source, u'хз')
+		return (u'хз')
 
-register_command_handler(handler_weather_weather, 'погода', ['инфо','все'], 10, 'Смотрит погоду из NOAA', 'погода <4буквенный_код_города>', ['погода ukhh'])
+
+def handler_weather_weathercode(type, source, parameters):
+		reply(type, source, return_code(parameters))
+		return
+		
+def handler_weather_plus(type, source, parameters):
+	if not parameters:
+		return (u'ну и чё?')
+	code = return_code(parameters)
+	for c in code.split(' '):
+		if (c==''):
+			return
+		else:
+			handler_weather_weather(type, source, c)
+	return
+
+
+register_command_handler(handler_weather_weather, 'погода', ['инфо','все'], 10, 'Смотрит погоду из NOAA, или по названию города, или погоду в определённом по счёту аэропорту', 'погода <4буквенный_код_города>', ['погода ukhh', 'погода moscow' , 'погода moscow /1'])
+register_command_handler(handler_weather_plus , 'погода+', ['инфо','все'], 10, 'Смотрит погоду в городе N во всех аэропортах', 'погода+ <город>', ['погода+ moscow'])
 register_command_handler(handler_weather_weathercode, 'код', ['инфо','все'], 10, 'Показывает код города для просмотра погоды', 'код <город>', ['код orel'])
