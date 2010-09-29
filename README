@@ -1,0 +1,17 @@
+what is this? this is Talisman ver.1 preXP1 source code.
+what is XP1? it's eXperience Pack 1 for version 1 (tags\1).
+why do we need it? for more bugs feedback. at first, i wished to publish XP1 when it will be completely done. but i'm changed my mind. well... some people WANTED to so it was ;) so, when it will be done - it will be moved to tags\1
+
+how to install:
+1)	edit config.txt
+2)	run pybot.py
+3)	from botadmin jid type to bot jid "חאיעט some_chat@at.some.server" OR
+		create&edit dynamic\chatrooms.list. template is {u'some_chat@at.some.server': {'nick': u'bot_nick', 'passw': 'password'},u'another_some_chat@at.some.server': {'nick': u'another_bot_nick', 'passw': 'another_password'}} it's simple, eh?
+4)	talisman@conference.jabber.ru is bot dev conf. so, bugs may be there
+
+ps Talisman ver.1 users - just update your bot from trunk OR copy your dynamic into trunk version. there is nothing more to do, afaik ^_^
+
+Als//תûü
+
+Good luck.
+Tuarisa.
