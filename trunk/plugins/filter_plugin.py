@@ -33,19 +33,29 @@ def filter_check_order():
 def register_filterNS_handler():
 	JCON.RegisterHandler('iq', handler_filter_check, 'set', 'http://jabber.ru/muc-filter') 
 
-def handler_filter_check(con, iq):	
-	msg=xmpp.Message(node=iq.getQueryChildren()[0])
-	body = msg.getBody()
-	if body:	body=body.strip()
-	if not body:	return
-	gch=unicode(msg.getTo()).split('/')[0]
-	for nick in GROUPCHATS[gch].keys():
-		if GROUPCHATS[gch][nick]['jid'] == msg.getFrom():
-			mfrom=unicode(gch)+u'/'+nick
-			fbody=handler_order_message(1, msg.getType(), [mfrom, unicode(gch), nick], body)
-			if not fbody is True: handler_send_filtered(msg.setBody(fbody.strip()),iq)
+def handler_filter_check(con, iq):
+	stanza=iq.getQueryChildren()[0]
+	if stanza.getName()==u'message':
+		msg=xmpp.Message(node=stanza)
+		body = msg.getBody()
+		if body:	body=body.strip()
+		if not body:	return
+		gch=unicode(msg.getTo()).split('/')[0]
+		for nick in GROUPCHATS[gch].keys():
+			if GROUPCHATS[gch][nick]['jid'] == msg.getFrom():
+				mfrom=gch+u'/'+nick
+				fbody=handler_order_message(1, msg.getType(), [mfrom, gch, nick], body)
+				if not fbody is True and fbody:
+					msg.setBody(fbody.strip())
+					handler_send_filtered(iq)
+	elif stanza.getName()==u'presence':
+		handler_send_filtered(iq)
+	else:
+		handler_send_filtered(iq)
+	if not GCHCFGS[gch]['filt']['fltmode']:
+		GCHCFGS[gch]['filt']['fltmode']=1
 
-def handler_send_filtered(fbody, iq):
+def handler_send_filtered(iq):
 	result=iq.buildReply('result')
 	query = result.getTag('query')
 	query.addChild(node=iq.getQueryChildren()[0])

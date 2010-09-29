@@ -18,18 +18,43 @@
 #  GNU General Public License for more details.
 
 order_stats = {}
-order_obscene_words = [u'бляд', u' блят', u' бля ', u' блять ', u' плять ', u' хуй', u' ибал', u' ебал', u'нахуй', u' хуй', u' хуи', u'хуител', u' хуя', u'хуя', u' хую', u' хуе', u' ахуе', u' охуе', u'хуев', u' хер ', u' хер', u'хер', u' пох ', u' нах ', u'писд', u'пизд', u'рizd', u' пздц ', u' еб', u' епана ', u' епать ', u' ипать ', u' выепать ', u' ибаш', u' уеб', u'проеб', u'праеб', u'приеб', u'съеб', u'сьеб', u'взъеб', u'взьеб', u'въеб', u'вьеб', u'выебан', u'перееб', u'недоеб', u'долбоеб', u'долбаеб', u' ниибац', u' неебац', u' неебат', u' ниибат', u' пидар', u' рidаr', u' пидар', u' пидор', u'педор', u'пидор', u'пидарас', u'пидараз', u' педар', u'педри', u'пидри', u' заеп', u' заип', u' заеб', u'ебучий', u'ебучка ', u'епучий', u'епучка ', u' заиба', u'заебан', u'заебис', u' выеб', u'выебан', u' поеб', u' наеб', u' наеб', u'сьеб', u'взьеб', u'вьеб', u' гандон', u' гондон', u'пахуи', u'похуис', u' манда ', u'мандав', u' залупа', u' залупог', u' хоткофе', u' хоткоффе', u' хот кофе', u' hot coffee', u' hotcoffee']
+order_obscene_raw_words = [u'бляд', u' блят', u' бля ', u' блять ', u' плять ', u' хуй', u' ибал', u' ебал', u'нахуй', u' хуй', u' хуи', u'хуител', u' хуя', u'хуя', u' хую', u' хуе', u' ахуе', u' охуе', u'хуев', u' хер ', u' хер', u'хер', u' пох ', u' нах ', u'писд', u'пизд', u'рizd', u' пздц ', u' еб', u' ёб', u' епана ', u' епать ', u' ипать ', u' выепать ', u' ибаш', u' уеб', u'проеб', u'праеб', u'приеб', u'съеб', u'сьеб', u'взъеб', u'взьеб', u'въеб', u'вьеб', u'выебан', u'перееб', u'недоеб', u'долбоеб', u'долбаеб', u' ниибац', u' неебац', u' неебат', u' ниибат', u' пидар', u' рidаr', u' пидар', u' пидор', u'педор', u'пидор', u'пидарас', u'пидараз', u' педар', u'педри', u'пидри', u' заеп', u' заип', u' заеб', u'ебучий', u'ебучка ', u'епучий', u'епучка ', u' заиба', u'заебан', u'заебис', u' выеб', u'выебан', u' поеб', u' наеб', u' наеб', u'сьеб', u'взьеб', u'вьеб', u' гандон', u' гондон', u'пахуи', u'похуис', u' манда ', u'мандав', u' залупа', u' залупог']
 
+order_obscene_words = []
 
-def order_check_obscene_words(body):
-	body=body.lower()
+for word in order_obscene_raw_words:
+	order_obscene_words.append(re.compile(word, re.I+re.U))
+	
+def order_check_db(gch,jid,nick):
+	if nick in GROUPCHATS[gch]:
+		order_stats[gch][jid]={'kicks': 0, 'devoice': {'cnd': 0, 'time': 0}, 'msgbody': '', 'prstime': {'fly': 0, 'status': 0}, 'prs': {'fly': 0, 'status': 0}, 'msg': 0, 'msgtime': 0, 'flood': 0, 'smile': 0}
+	
+
+def order_check_obscene_words(body, ff=0):
 	body=u' '+body+u' '
-	for x in order_obscene_words:
-		if body.count(x):
-			return True
+	if ff:
+		for x in order_obscene_words:
+			body=re.sub(x, order_mask_badword, body)
+		return body
+	else:
+		for x in order_obscene_raw_words:
+			if body.count(x):
+				return True
 	return False
+	
+def order_mask_badword(mobj):
+	bword,mword=mobj.group(0),u'%s'
+	mask=list(string.punctuation)
+	random.shuffle(mask)
+	if bword.startswith(' '):
+		mword=u' '+mword
+	if bword.endswith(' '):
+		mword=mword+u' '
+	return mword % u''.join(mask[:len(bword.strip())])
+	
+##############################################################################
 
-def order_check_time_flood(gch, jid, nick):
+def order_check_time_flood(body, gch, jid, nick, ff=0):
 	lastmsg=order_stats[gch][jid]['msgtime']
 	if lastmsg and time.time()-lastmsg<=2.2:
 		order_stats[gch][jid]['msg']+=1
@@ -37,43 +62,55 @@ def order_check_time_flood(gch, jid, nick):
 			order_stats[gch][jid]['devoice']['time']=time.time()
 			order_stats[gch][jid]['devoice']['cnd']=1
 			order_stats[gch][jid]['msg']=0
-			order_kick(gch, nick, u'слишком быстро отправляешь')
+			order_kick(gch, nick, u'слишком быстрая отправка сообщений')
 			return True
-		return False
+		if ff :	return ''
+	if ff: return body
+	return False
 
-def order_check_len_flood(mlen, body, gch, jid, nick):
+def order_check_len_flood(mlen, body, gch, jid, nick, ff=0):
 	if len(body)>mlen:
-		order_stats[gch][jid]['devoice']['time']=time.time()
-		order_stats[gch][jid]['devoice']['cnd']=1
-		order_kick(gch, nick, u'флуд')
-		return True
+		order_stats[gch][jid]['flood']+=1
+		if order_stats[gch][jid]['flood']>3:
+			order_stats[gch][jid]['devoice']['time']=time.time()
+			order_stats[gch][jid]['devoice']['cnd']=1
+			order_kick(gch, nick, u'флуд')
+			return True
+		if ff: return body[:mlen]+u' ...'
+	if ff: return body
 	return False
 
-def order_check_obscene(body, gch, jid, nick):
-	if order_check_obscene_words(body):
+def order_check_obscene(body, gch, jid, nick, ff=0):
+	body=order_check_obscene_words(body, ff)
+	if body:
+		if ff: return body
 		order_stats[gch][jid]['devoice']['time']=time.time()
 		order_stats[gch][jid]['devoice']['cnd']=1
-		order_kick(gch, nick, u'нецензурно либо неуместно в данной конференции')
+		order_kick(gch, nick, u'нецензурно')
 		return True
+	if ff: return body
 	return False
 
-def order_check_caps(body, gch, jid, nick):
-	ccnt=0
-	nicks = GROUPCHATS[gch].keys()
-	for x in nicks:
-		if body.count(x):
-			body=body.replace(x,'')
-	for x in [x for x in body.replace(' ', '')]:
-		if x.isupper():
-			ccnt+=1
-	if ccnt>=len(body)/2 and ccnt>9:
-		order_stats[gch][jid]['devoice']['time']=time.time()
-		order_stats[gch][jid]['devoice']['cnd']=1
-		order_kick(gch, nick, u'слишком много капса')
-		return True
+def order_check_caps(body, gch, jid, nick, ff=0):
+	if len(body)>5:
+		tbody,ccnt=body,0
+		nicks = GROUPCHATS[gch].keys()
+		for x in nicks:
+			if tbody.count(x):
+				tbody=tbody.replace(x,'')
+		for x in [x for x in tbody.replace(' ', '')]:
+			if x.isupper():
+				ccnt+=1
+			if ccnt>=len(tbody)/2 and ccnt>9:
+				if ff: return tbody.lower()
+				order_stats[gch][jid]['devoice']['time']=time.time()
+				order_stats[gch][jid]['devoice']['cnd']=1
+				order_kick(gch, nick, u'слишком много ЗАГЛАВНЫХ букв')
+				return True
+	if ff: return body
 	return False
 
-def order_check_like(body, gch, jid, nick):
+def order_check_like(body, gch, jid, nick, ff=0):
 	lcnt=0
 	lastmsg=order_stats[gch][jid]['msgtime']
 	if lastmsg and order_stats[gch][jid]['msgbody']:
@@ -88,18 +125,59 @@ def order_check_like(body, gch, jid, nick):
 				lensrcmsgbody=len(body.split())
 				lenoldmsgbody=len(order_stats[gch][jid]['msgbody'])
 				avg=(lensrcmsgbody+lenoldmsgbody/2)/2
-				if lcnt>avg:
+				if lcnt>=avg:
 					order_stats[gch][jid]['msg']+=1
 					if order_stats[gch][jid]['msg']>=2:
 						order_stats[gch][jid]['devoice']['time']=time.time()
 						order_stats[gch][jid]['devoice']['cnd']=1
 						order_stats[gch][jid]['msg']=0
-						order_kick(gch, nick, u'мессаги слишком похожи')
+						order_kick(gch, nick, u'сообщения слишком похожи')
 						return True
+					if ff: body=''
 			order_stats[gch][jid]['msgbody']=body.split()
 	else:
 		order_stats[gch][jid]['msgbody']=body.split()
+	if ff:	return body
 	return False
+	
+def order_check_newline(body, gch, jid, nick, ff=0):
+	ncnt=body.count(u'\n')
+	if ncnt>10 :
+		if ff: return body.replace(u'\n', u'', ncnt-10)
+		order_stats[gch][jid]['devoice']['time']=time.time()
+		order_stats[gch][jid]['devoice']['cnd']=1
+		order_kick(gch, nick, u'слишком много переносов строки')
+		return True
+	if ff: return body
+	return False
+	
+def order_check_smile(body, gch, jid, nick, ff=0):
+	resmile=re.compile(r"[0o>}\])]?[:;8%\+\^=][',]?-?(?:[\^_sdpco0#@*$|]|\)+|\(+)=?", re.I)
+	smlcnt,tmpsml=len(re.findall(resmile, body)),0
+	for word in body.split():
+		if word.startswith('*') and word.endswith('*') and word[1:-1].isupper():	tmpsml+=1
+	smlcnt+=tmpsml
+	if smlcnt > 3:
+		order_stats[gch][jid]['smile']+=1
+		if order_stats[gch][jid]['smile']>=3:
+			order_stats[gch][jid]['devoice']['time']=time.time()
+			order_stats[gch][jid]['devoice']['cnd']=1
+			order_kick(gch, nick, u'слишком много смайликов :)')
+			return True
+		if ff: return re.sub(resmile, u'', body, smlcnt-3)
+	if ff: return body
+	return False
+	
+def order_check_longword(body, gch, jid, nick, ff=0):
+	for word in body.split():
+		if len(word)>20 and not body.startswith(u'http:'):
+			order_stats[gch][jid]['devoice']['time']=time.time()
+			order_stats[gch][jid]['devoice']['cnd']=1
+			order_kick(gch, nick, u'гиппопотомонстросескиппедалофаг')
+			return True
+	if ff: return body
+	return False
+	
 
 ####################################################################################################
 
@@ -167,18 +245,66 @@ def handler_order_message(raw, type, source, body):
 	if groupchat in GROUPCHATS.keys() and user_level(source,groupchat)<11:
 		if get_bot_nick(groupchat)!=nick:
 			jid=get_true_jid(groupchat+'/'+nick)
+			filt=GCHCFGS[groupchat]['filt']
 			if groupchat in order_stats and jid in order_stats[groupchat]:
-				if GCHCFGS[groupchat]['filt']['time']==1:
-					if order_check_time_flood(groupchat, jid, nick):	return
-				if GCHCFGS[groupchat]['filt']['len']==1:
-					if order_check_len_flood(900, body, groupchat, jid, nick):	return
-				if GCHCFGS[groupchat]['filt']['obscene']==1:
-					if order_check_obscene(body, groupchat, jid, nick):	return
-				if GCHCFGS[groupchat]['filt']['caps']==1:
-					if order_check_caps(body, groupchat, jid, nick):	return
-				if GCHCFGS[groupchat]['filt']['like']==1:
-					if order_check_like(body, groupchat, jid, nick):	return
-				order_stats[groupchat][jid]['msgtime']=time.time()
+				if raw == 1:
+					if filt['time']==1:
+						body=order_check_time_flood(body, groupchat, jid, nick, raw)
+					if filt['len']==1:
+						if body != True:
+							body=order_check_len_flood(1500, body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					if filt['long']==1:
+						if body != True:
+							body=order_check_longword(body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					if filt['newline']==1:
+						if body != True:
+							body=order_check_newline(body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					if filt['caps']==1:
+						if body != True:
+							body=order_check_caps(body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					if filt['like']==1:
+						if body != True:
+							body=order_check_like(body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					if filt['obscene']==1:
+						if body != True:
+							body=order_check_obscene(body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					if filt['smile']==1:
+						if body != True:
+							body=order_check_smile(body, groupchat, jid, nick, raw)
+						else:
+							return ''
+					return body
+				if not filt['fltmode']:
+					if filt['long']==1:
+						if order_check_longword(body, groupchat, jid, nick, raw):	return
+					if filt['time']==1:
+						if order_check_time_flood(body, groupchat, jid, nick):	return
+					if filt['len']==1:
+						if order_check_len_flood(1500, body, groupchat, jid, nick):	return
+					if filt['obscene']==1:
+						if order_check_obscene(body, groupchat, jid, nick):	return
+					if filt['caps']==1:
+						if order_check_caps(body, groupchat, jid, nick):	return
+					if filt['like']==1:
+						if order_check_like(body, groupchat, jid, nick):	return
+					if filt['newline']==1:
+						if order_check_newline(body, groupchat, jid, nick):	return
+					if filt['smile']==1:
+						if order_check_smile(body, groupchat, jid, nick):	return
+					order_stats[groupchat][jid]['msgtime']=time.time()
+
 
 def handler_order_join(groupchat, nick, aff, role):
 	jid=get_true_jid(groupchat+'/'+nick)
@@ -186,46 +312,44 @@ def handler_order_join(groupchat, nick, aff, role):
 		now = time.time()
 		if not groupchat in order_stats.keys():
 			order_stats[groupchat] = {}
-		if jid in order_stats[groupchat].keys():
-			if order_stats[groupchat][jid]['devoice']['cnd']==1:
-				if now-order_stats[groupchat][jid]['devoice']['time']>300:
-					order_stats[groupchat][jid]['devoice']['cnd']=0
-				else:
-					order_visitor(groupchat, nick, u'право голоса снято за предыдущие нарушения')
+		order_check_db(groupchat,jid,nick)
+		ostats=order_stats[groupchat][jid]
+		if ostats['devoice']['cnd']==1:
+			if now-ostats['devoice']['time']>300:
+				ostats['devoice']['cnd']=0
+			else:
+				order_visitor(groupchat, nick, u'право голоса снято за предыдущие нарушения')
 
-			if GCHCFGS[groupchat]['filt']['kicks']['cond']==1:
-				kcnt=GCHCFGS[groupchat]['filt']['kicks']['cnt']
-				if order_stats[groupchat][jid]['kicks']>kcnt:
-					order_ban(groupchat, nick, u'слишком много киков')
-					return
+		if GCHCFGS[groupchat]['filt']['kicks']['cond']==1:
+			kcnt=GCHCFGS[groupchat]['filt']['kicks']['cnt']
+			if ostats['kicks']>kcnt:
+				order_ban(groupchat, nick, u'слишком много киков')
+				return
 
-			if GCHCFGS[groupchat]['filt']['fly']['cond']==1:
-				lastprs=order_stats[groupchat][jid]['prstime']['fly']
-				order_stats[groupchat][jid]['prstime']['fly']=time.time()
-				if now-lastprs<=70:
-					order_stats[groupchat][jid]['prs']['fly']+=1
-					if order_stats[groupchat][jid]['prs']['fly']>4:
-						order_stats[groupchat][jid]['prs']['fly']=0
-						fmode=GCHCFGS[groupchat]['filt']['fly']['mode']
-						ftime=GCHCFGS[groupchat]['filt']['fly']['time']
-						if fmode=='ban':
-							order_ban(groupchat, nick, u'хватит летать')
-							time.sleep(ftime)
-							order_unban(groupchat, jid)
-						else:
-							order_kick(groupchat, nick, u'хватит летать')
-							return
-				else:
-					order_stats[groupchat][jid]['prs']['fly']=0
+		if GCHCFGS[groupchat]['filt']['fly']['cond']==1:
+			lastprs=ostats['prstime']['fly']
+			ostats['prstime']['fly']=time.time()
+			if now-lastprs<=70:
+				ostats['prs']['fly']+=1
+				if ostats['prs']['fly']>4:
+					ostats['prs']['fly']=0
+					fmode=GCHCFGS[groupchat]['filt']['fly']['mode']
+					ftime=GCHCFGS[groupchat]['filt']['fly']['time']
+					if fmode=='ban':
+						order_ban(groupchat, nick, u'хватит летать')
+						time.sleep(ftime)
+						order_unban(groupchat, jid)
+					else:
+						order_kick(groupchat, nick, u'хватит летать')
+						return
+			else:
+				ostats['prs']['fly']=0
 
-			if GCHCFGS[groupchat]['filt']['obscene']==1:
-				if order_check_obscene(nick, groupchat, jid, nick):	return
+		if GCHCFGS[groupchat]['filt']['obscene']==1:
+			if order_check_obscene(nick, groupchat, jid, nick):	return
 
-			if GCHCFGS[groupchat]['filt']['len']==1:
-				if order_check_len_flood(20, nick, groupchat, jid, nick):	return
-
-		elif nick in GROUPCHATS[groupchat]:
-			order_stats[groupchat][jid]={'kicks': 0, 'devoice': {'cnd': 0, 'time': 0}, 'msgbody': None, 'prstime': {'fly': 0, 'status': 0}, 'prs': {'fly': 0, 'status': 0}, 'msg': 0, 'msgtime': 0}
+		if GCHCFGS[groupchat]['filt']['len']==1:
+			if order_check_len_flood(20, nick, groupchat, jid, nick):	return
 
 	elif groupchat in order_stats and jid in order_stats[groupchat]:
 		del order_stats[groupchat][jid]
@@ -234,7 +358,7 @@ def handler_order_join(groupchat, nick, aff, role):
 
 def handler_order_presence(prs):
 	ptype = prs.getType()
-	if ptype=='unavailable' or ptype=='error':
+	if ptype in ['unavailable','error']:
 		return
 	groupchat = prs.getFrom().getStripped()
 	nick = prs.getFrom().getResource()
@@ -248,24 +372,25 @@ def handler_order_presence(prs):
 			return
 	else:
 		if item['affiliation']=='none':
-			order_stats[groupchat][jid]={'kicks': 0, 'devoice': {'cnd': 0, 'time': 0}, 'msgbody': None, 'prstime': {'fly': 0, 'status': 0}, 'prs': {'fly': 0, 'status': 0}, 'msg': 0, 'msgtime': 0}
+			order_check_db(groupchat,jid,nick)
 
 	if nick in GROUPCHATS[groupchat] and user_level(groupchat+'/'+nick,groupchat)<11:
 		if groupchat in order_stats and jid in order_stats[groupchat]:
+			ostats=order_stats[groupchat][jid]
 			now = time.time()
 			if now-GROUPCHATS[groupchat][nick]['joined']>1:
 				if item['role']=='participant':
-					order_stats[groupchat][jid]['devoice']['cnd']=0
-				lastprs=order_stats[groupchat][jid]['prstime']['status']
-				order_stats[groupchat][jid]['prstime']['status']=now
+					ostats['devoice']['cnd']=0
+				lastprs=ostats['prstime']['status']
+				ostats['prstime']['status']=now
 
 				if GCHCFGS[groupchat]['filt']['presence']==1:
 					if now-lastprs>300:
-						order_stats[groupchat][jid]['prs']['status']=0
+						ostats['prs']['status']=0
 					else:
-						order_stats[groupchat][jid]['prs']['status']+=1
-						if order_stats[groupchat][jid]['prs']['status']>5:
-							order_stats[groupchat][jid]['prs']['status']=0
+						ostats['prs']['status']+=1
+						if ostats['prs']['status']>5:
+							ostats['prs']['status']=0
 							order_kick(groupchat, nick, u'презенс-флуд')
 							return
 
@@ -434,11 +559,37 @@ def handler_order_filt(type, source, parameters):
 				elif parameters[1]=='1':
 					reply(type,source,u'фильтр кика за молчание включен')
 					GCHCFGS[source[1]]['filt']['idle']['cond']=1
+			elif parameters[0]=='newline':
+				if parameters[1]=='0':
+					reply(type,source,u'фильтрация множественных переносов строки отключена')
+					GCHCFGS[source[1]]['filt']['newline']=0
+				elif parameters[1]=='1':
+					reply(type,source,u'фильтрация множественных переносов строки включена')
+					GCHCFGS[source[1]]['filt']['newline']=1
+				else:
+					reply(type,source,u'синтакс инвалид')
+			elif parameters[0]=='smile':
+				if parameters[1]=='0':
+					reply(type,source,u'фильтрация смайликов отключена')
+					GCHCFGS[source[1]]['filt']['smile']=0
+				elif parameters[1]=='1':
+					reply(type,source,u'фильтрация смайликов включена')
+					GCHCFGS[source[1]]['filt']['smile']=1
+				else:
+					reply(type,source,u'синтакс инвалид')
+			elif parameters[0]=='long':
+				if parameters[1]=='0':
+					reply(type,source,u'фильтрация длинных слов отключена')
+					GCHCFGS[source[1]]['filt']['long']=0
+				elif parameters[1]=='1':
+					reply(type,source,u'фильтрация длинных слов включена')
+					GCHCFGS[source[1]]['filt']['long']=1
+				else:
+					reply(type,source,u'синтакс инвалид')
 			else:
 				reply(type,source,u'синтакс инвалид')
 				return
-			DBPATH='dynamic/'+source[1]+'/config.cfg'
-			write_file(DBPATH, str(GCHCFGS[source[1]]))
+			save_gch_cfg(source[1])
 		else:
 			reply(type,source,u'случилось что-то странное, ткните админа бота')
 	else:
@@ -457,6 +608,10 @@ def handler_order_filt(type, source, parameters):
 		kickscnt=str(GCHCFGS[source[1]]['filt']['kicks']['cnt'])
 		idle=GCHCFGS[source[1]]['filt']['idle']['cond']
 		idletime=GCHCFGS[source[1]]['filt']['idle']['time']
+		newline=GCHCFGS[source[1]]['filt']['newline']
+		smile=GCHCFGS[source[1]]['filt']['smile']
+		longw=GCHCFGS[source[1]]['filt']['long']
+		fltmode=GCHCFGS[source[1]]['filt']['fltmode']
 		if time:
 			fon.append(u'временная фильтрация сообщений')
 		else:
@@ -497,6 +652,22 @@ def handler_order_filt(type, source, parameters):
 			fon.append(u'кик за молчание через '+str(idletime)+u' секунд ('+timeElapsed(idletime)+u')')
 		else:
 			foff.append(u'кик за молчание')
+		if newline:
+			fon.append(u'фильтрация множественных переносов строки')
+		else:
+			foff.append(u'фильтрация множественных переносов строки')
+		if smile:
+			fon.append(u'фильтрация смайлов')
+		else:
+			foff.append(u'фильтрация смайлов')
+		if longw:
+			fon.append(u'фильтрация длинных слов')
+		else:
+			foff.append(u'фильтрация длинных слов')
+		if fltmode:
+			fon.append(u'\nфильтрация через сервер конференций')
+		else:
+			foff.append(u'\nфильтрация через сервер конференций')
 		fon=u', '.join(fon)
 		foff=u', '.join(foff)
 		if fon:
@@ -509,7 +680,7 @@ def handler_order_filt(type, source, parameters):
 def get_order_cfg(gch):
 	if not 'filt' in GCHCFGS[gch]:
 		GCHCFGS[gch]['filt']={}
-	for x in ['time','presence','len','like','caps','prsstlen','obscene','kicks','fly','excess','idle']:
+	for x in ['time','presence','len','like','caps','prsstlen','obscene','kicks','fly','excess','idle','newline','fltmode','smile','long']:
 		if x == 'excess':
 			if not x in GCHCFGS[gch]['filt']:
 				GCHCFGS[gch]['filt'][x]={'cond':0, 'mode': 'kick'}
@@ -526,6 +697,10 @@ def get_order_cfg(gch):
 			if not x in GCHCFGS[gch]['filt']:
 				GCHCFGS[gch]['filt'][x]={'cond':0, 'time': 3600}
 			continue
+		if x == 'fltmode':
+			if not x in GCHCFGS[gch]['filt']:
+				GCHCFGS[gch]['filt'][x]=0
+			continue
 		if not x in GCHCFGS[gch]['filt']:
 			GCHCFGS[gch]['filt'][x]=1
 
@@ -533,7 +708,7 @@ register_message_handler(handler_order_message)
 register_join_handler(handler_order_join)
 register_leave_handler(handler_order_leave)
 register_presence_handler(handler_order_presence)
-register_command_handler(handler_order_filt, 'filt', ['админ','мук','все'], 20, 'Включает или отключает определённые фильтры для конференции.\ntime - временной фильтр\nlen - количественный фильтр\npresence - фильтр презенсов\nlike - фильтр одинаковых сообщений\ncaps - фильтр капса (ЗАГЛАВНЫХ букв)\nprsstlen - фильтр длинных статусных сообщений\nobscene - фильтр матов\nfly - фильтр полётов (частых входов/выходов в конмату), имеет два режима ban и kick, таймер от 0 до 120 секунд\nkicks - автобан после N киков, параметр cnt - количество киков от 1 до 10\nidle - кик за молчание в общем чате после N секунд, параметр time - кол-во секунд для срабатывания', 'filt [фильтр] [режим] [состояние]', ['filt smile 1', 'filt len 0','filt fly mode ban'])
+register_command_handler(handler_order_filt, 'filt', ['админ','мук','все'], 20, 'Включает или отключает определённые фильтры для конференции.\ntime - временной фильтр (не более одного сообщения в 2.2 секунды)\nlen - количественный фильтр (кол-во символов в сообщении не более 1500)\npresence - фильтр презенсов (не более 5 презенсов за 5 минут)\nlike - фильтр одинаковых сообщений (не более 2 одинаковых или очень похожих подряд)\ncaps - фильтр ЗАГЛАВНЫХ букв (не более 9 и не более чем половина сообщения)\nprsstlen - фильтр длинных статусных сообщений (не более 200 символов)\nobscene - фильтр матов\nfly - фильтр полётов (частых входов/выходов в конмату), имеет два режима ban и kick, таймер от 0 до 120 секунд\nkicks - автобан после N киков, параметр cnt - количество киков от 1 до 10\nidle - кик за молчание в общем чате после N секунд, параметр time - кол-во секунд для срабатывания\nlong - фильтрация длинных слов (более 20 букв)\nsmile - фильтр смайликов (не более 3 в сообщении)\nnl - фильтр множественных переносов строк в сообщении и презенсе (не более 10 переносов)', 'filt [фильтр] [режим] [состояние]', ['filt smile 1', 'filt len 0','filt fly mode ban'])
 
 register_stage1_init(get_order_cfg)
 register_stage2_init(order_check_idle)
