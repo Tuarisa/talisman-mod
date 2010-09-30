@@ -23,17 +23,17 @@ def handler_timer (type, source, parameters):
 		reply(type, source, u'Эй, научись пользоваться ботом сначала!')
 	str=0
 	alarm = parameters.split()[0]
-	if parameters.count (' '): str = parameters.split()[1]
+	if parameters.count (' '): str = parameters.split(' ', 1)[1]
 	if alarm.count('*'):
 		al=1
 		for a in alarm.split('*'):
 			al= al * int (a)
 		alarm = al
-	time.sleep(alarm)
+	time.sleep(int(alarm))
 	if str:
 		reply(type, source, str)
 	else:
 		reply(type, source, u'Проснись и пой!')
 	
 	
-register_command_handler(handler_timer, 'таймер', ['инфо','фан','все'], 10, 'Отвечает через заданный промежуток времени заданным текстом.', 'таймер <время> <текс>', ['таймер 10*60 проснись и пой!'])
+register_command_handler(handler_timer, 'таймер', ['инфо','фан','все'], 10, 'Отвечает через заданный промежуток времени заданным текстом.', 'таймер <время> <текст>', ['таймер 10*60 проснись и пой!'])
