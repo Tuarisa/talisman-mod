@@ -89,7 +89,7 @@ def handler_access_set_access(type, source, parameters):
 				if int(splitdata[1]) > int(jidacc):
 					reply(type, source, u'недостаточно прав')
 					return
-			elif int(toacc) > int(jidacc):
+			elif int(toacc) >= int(jidacc):
 				reply(type, source, u'недостаточно прав')
 				return
 			elif int(splitdata[1]) >= int(jidacc):
