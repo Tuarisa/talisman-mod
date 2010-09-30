@@ -292,9 +292,9 @@ def get_autoaway_state(gch):
 		
 def set_default_gch_status(gch):
 	if isinstance(GCHCFGS[gch].get('status'), str): #temp workaround
-		GCHCFGS[gch]['status']={'status': u'напишите "помощь" и следуйте указаниям, чтобы понять как со мной работать', 'show': u''}
+		GCHCFGS[gch]['status']={'status': u'напишите "помощь" и следуйте указаниям, чтобы понять, как со мной работать', 'show': u''}
 	elif not isinstance(GCHCFGS[gch].get('status'), dict):
-		GCHCFGS[gch]['status']={'status': u'напишите "помощь" и следуйте указаниям, чтобы понять как со мной работать', 'show': u''}
+		GCHCFGS[gch]['status']={'status': u'напишите "помощь" и следуйте указаниям, чтобы понять, как со мной работать', 'show': u''}
 
 
 register_command_handler(handler_admin_join, 'зайти', ['суперадмин','мук','все'], 40, 'Зайти в определённую конференцию. Если она запаролена то пишите пароль сразу после её названия.', 'зайти <конференция> [pass=пароль] [причина]', ['зайти z@conference.jabber.aq', 'зайти z@conference.jabber.aq test', 'зайти z@conference.jabber.aq pass=1234 test'])
