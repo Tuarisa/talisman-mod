@@ -1,4 +1,4 @@
-#===istalismanplugin==
+#===istalismanplugin===
 # -*- coding: utf-8 -*-
 
 #  Talisman plugin
@@ -16,69 +16,56 @@
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 
-import xml.dom.minidom
+import urllib2,re
 
-horo_cache={}
+from re import compile as re_compile
 
-horodb={u'овен': u'aries', u'телец': u'taurus', u'близнецы': u'gemini', u'рак': u'cancer', u'лев': u'leo', u'дева': u'virgo', u'весы': u'libra', u'скорпион': u'scorpio', u'стрелец': u'sagittarius', u'козерог': u'capricorn', u'водолей': u'aquarius', u'рыбы': u'pisces'}
-whendb={u'вчера': u'yesterday', u'сегодня': u'today', u'завтра': u'tomorrow', u'послезавтра': u'tomorrow02'}
+strip_tags = re_compile(r'<[^<>]+>')
 
-def horo_update_cache():
-	if horo_cache and time.strftime("%H", time.gmtime())!='21':
-		threading.Timer(3600, horo_update_cache).start()
-	else:
-		try:
-			req=urllib2.urlopen('http://img.ignio.com/r/export/utf/xml/daily/com.xml')
-		except urllib2.HTTPError, e:
-			if e.code==404:
-				reply(type,source,u'кто это?')
+
+horodb={u'\u0432\u043e\u0434\u043e\u043b\u0435\u0439': u'11', u'\u0440\u0430\u043a': u'4', u'\u0432\u0435\u0441\u044b': u'7', u'\u043a\u043e\u0437\u0435\u0440\u043e\u0433': u'10', u'\u0434\u0435\u0432\u0430': u'6', u'\u0431\u043b\u0438\u0437\u043d\u0435\u0446\u044b': u'3', u'\u0441\u0442\u0440\u0435\u043b\u0435\u0446': u'9', u'\u0441\u043a\u043e\u0440\u043f\u0438\u043e\u043d': u'8', u'\u0442\u0435\u043b\u0435\u0446': u'2', u'\u043b\u0435\u0432': u'5', u'\u043e\u0432\u0435\u043d': u'1', u'\u0440\u044b\u0431\u044b': u'12'}
+
+def handler_horoscope_globa(type, source, parameters):
+	if parameters:
+		if parameters==u'знаки':
+			reply('private',source,', '.join(horodb.keys()))
+			return
+		if horodb.has_key(string.lower(parameters)):
+			req = urllib2.Request('http://horo.gala.net/?lang=ru&sign='+horodb[string.lower(parameters)])
+			req.add_header = ('User-agent', 'Mozilla/5.0')
+			r = urllib2.urlopen(req)
+			target = r.read()
+			"""sign name"""
+			od = re.search('<span class=SignName>',target)
+			h1 = target[od.end():]
+			h1 = h1[:re.search('</span>',h1).start()]
+			h1 += '\n'
+			"""day"""
+			od = re.search('<td class=blackTextBold nowrap>',target)
+			h2 = target[od.end():]
+			h2 = h2[:re.search('</td>',h2).start()]
+			h2 += '\n'
+			"""horoscope"""
+			od = re.search('<td class=stext>',target)
+			h3 = target[od.end():]
+			h3 = h3[:re.search('</td>',h3).start()]
+			if len(h3)<5:
+				reply(type,source,u'пока что гороскопа нету')
 				return
-			else:
-				reply(type,source,str(e))
-				return
-		horo_parse_horo(xml.dom.minidom.parse(req))
-
-def horo_parse_horo(raw_horo):
-	horo_cache.clear()
-	for sign in raw_horo.firstChild.childNodes:
-		sign=sign.nodeName
-		if sign in horodb.itervalues():
-			horo_cache[sign]={}
-	raw_date=raw_horo.getElementsByTagName("date")[0]
-	horo_cache['date']={'yesterday': raw_date.getAttribute('yesterday'), 'today': raw_date.getAttribute('today'), 'tomorrow': raw_date.getAttribute('tomorrow'), 'tomorrow02': raw_date.getAttribute('tomorrow02')}
-	for sign in horodb.itervalues():
-		raw_sign=raw_horo.getElementsByTagName(sign)[0].childNodes
-		for day in xrange(1,8,2):
-			horo_cache[sign][raw_sign[day].nodeName]=raw_sign[day].firstChild.data.strip()
-	print u'horoscope updated: '+time.strftime("%a, %d %b %Y %H:%M:%S UTC", time.gmtime())
-	threading.Timer(3600, horo_update_cache).start()
-
-
-def handler_horo_igniocom(type, source, parameters):
-	if not parameters:
-		reply(type, source, u'ошибочный запрос. прочитай помощь по использованию команды')
-	else:
-		temp,sign,when=parameters.split(),'',''
-		if len(temp)==1:
-			sign=parameters
-			when=u'today'
-		elif len(temp)>1:
-			(sign, when)=temp[0:2]
-			if not when in whendb.keys():
-				reply(type, source, u'ошибочный запрос. прочитай помощь по использованию команды')
-				return
-			when=whendb[when]
-		if sign in horodb.keys():
-			try:
-				reply(type, source, horo_cache[horodb[sign]][when])
-			except:
-				reply(type, source, u'в данный момент происходит обновление гороскопа. повторите ваш запрос позже')
+			message = h1+h2+h3
+			message = decode(message)
+			message=message.strip()
+			reply(type,source,u'ушёл в приват')
+			reply('private',source,unicode(message,'windows-1251'))
 		else:
-			reply(type, source, u'ошибочный запрос. прочитай помощь по использованию команды')
+			reply(type, source, u'что это за знак зодиака?')	
+			return	
+	else:
+		reply(type,source,u'для какого знака гороскоп смотреть-то?')
+		return
 
 
+def decode(text):
+    return strip_tags.sub('', text.replace('<br>','\n')).replace('&nbsp;', ' ').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('\t','').replace('>[:\n','')
 
-
-register_command_handler(handler_horo_igniocom, 'гороскоп', ['инфо','фан','все'], 0, 'Показывает гороскоп для указаного знака гороскопа. Возможен просмотр гороскопа за определённый день - вчера, сегодня (по умолчанию), завтра и послезавтра. Доступные знаки: '+', '.join([x.encode('utf-8') for x in horodb.keys()]), 'гороскоп [знак] <когда>', ['гороскоп козерог','гороскоп рыбы вчера'])
-
-register_stage2_init(horo_update_cache)
+register_command_handler(handler_horoscope_globa, 'гороскоп', ['инфо','фан','все'], 0, 'Показывает гороскоп для указзаного знака гороскопа. Все знаки - "гороскоп знаки".', 'гороскоп [знак]', ['гороскоп козерог','гороскоп рыбы'])
