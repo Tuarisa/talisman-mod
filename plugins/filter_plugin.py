@@ -40,7 +40,7 @@ def handler_filter_check(con, iq):
 		body = msg.getBody()
 		if body:	body=body.strip()
 		if not body:	return
-		gch=unicode(msg.getTo()).split('/')[0]
+		gch=(unicode(msg.getTo()).split('/')[0]).lower()
 		for nick in GROUPCHATS[gch].keys():
 			if GROUPCHATS[gch][nick]['jid'] == msg.getFrom():
 				mfrom=gch+u'/'+nick
