@@ -1,10 +1,20 @@
 #===istalismanplugin===
 # -*- coding: utf-8 -*-
 
-# Endless / talisman rev 84+
-# version 0.03b by Tuarisa
-# Freeware
+#  Talisman plugin
+#  netcoffe-plugin.py	
 
+#  Initial Copyright © 2010 Tuarisa <Tuarisa@gmail.com>
+
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 
 def handler_netcoffee(groupchat, nick, aff, jid):
 		tjid = get_true_jid(groupchat+'/'+nick)
