@@ -6535,7 +6535,6 @@ UTSS => Samarkand Самарканд
 UTST => Termez Термез
 UTTT => Tashkent Ташкент
 UUBA => Kostroma Кострома
-UUBB => Moscow Москва
 UUBB => Bussellton 
 UUBB => Belburn 
 UUBC => Kaluga Калуга
