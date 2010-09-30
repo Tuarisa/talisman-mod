@@ -24,12 +24,7 @@ def handler_timer (type, source, parameters):
 	str=0
 	alarm = parameters.split()[0]
 	if parameters.count (' '): str = parameters.split(' ', 1)[1]
-	if alarm.count('*'):
-		al=1
-		for a in alarm.split('*'):
-			al= al * int (a)
-		alarm = al
-	time.sleep(int(alarm))
+	time.sleep(eval(alarm))
 	if str:
 		reply(type, source, str)
 	else:
