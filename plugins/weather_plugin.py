@@ -31,12 +31,14 @@ def handler_weather_weather(type, source, parameters):
 		rf=pymetar.ReportFetcher(parameters.strip())
 		fr=rf.FetchReport()
 	except Exception, ex:
-		parameters = return_code(parameters).split(' ')[0]
+		if parameters.split()[1]:
+			parameters = return_code(parameters.split()[0]).split()[int(parameters.split()[1])-1]
+		else:
+			parameters = return_code(parameters).split()[0]
 		try:
 			rf=pymetar.ReportFetcher(parameters.strip())
 			fr=rf.FetchReport()	
 		except Exception, ex:
-			results = u'а если ли такой код?'
 #			reply(type, source, u'А оно есть?')
 			return	
 	rp=pymetar.ReportParser()
@@ -98,6 +100,6 @@ def handler_weather_plus(type, source, parameters):
 	return
 
 
-register_command_handler(handler_weather_weather, 'погода', ['инфо','все'], 10, 'Смотрит погоду из NOAA, или по названию города, или погоду в определённом по счёту аэропорту', 'погода <4буквенный_код_города>', ['погода ukhh', 'погода moscow' , 'погода moscow /1'])
+register_command_handler(handler_weather_weather, 'погода', ['инфо','все'], 10, 'Смотрит погоду из NOAA, или по названию города, или погоду в определённом по счёту аэропорту', 'погода <4буквенный_код_города>', ['погода ukhh', 'погода moscow', 'погода москва 1'])
 register_command_handler(handler_weather_plus , 'погода+', ['инфо','все'], 10, 'Смотрит погоду в городе N во всех аэропортах', 'погода+ <город>', ['погода+ moscow'])
 register_command_handler(handler_weather_weathercode, 'код', ['инфо','все'], 10, 'Показывает код города для просмотра погоды', 'код <город>', ['код orel'])
