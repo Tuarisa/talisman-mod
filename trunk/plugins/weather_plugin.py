@@ -34,7 +34,7 @@ def handler_weather_weather(type, source, parameters):
 		if parameters.count('/'):
 			parameters = return_code(parameters.rsplit(' ', 1)[0]).split()[int(parameters.split('/')[1])-1]
 		else:
-			parameters = return_code(parameters)
+			parameters = return_code(parameters).split()[0]
 		try:
 			rf=pymetar.ReportFetcher(parameters.strip())
 			fr=rf.FetchReport()	
