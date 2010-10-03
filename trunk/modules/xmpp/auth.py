@@ -21,18 +21,11 @@ Can be used both for client and transport authentication.
 
 from protocol import *
 from client import PlugIn
-import base64,random,dispatcher,re
+import sha,base64,random,dispatcher,re
 
-import hashlib
-def HH(some):
-    md5 = hashlib.md5()
-    md5.update(some)
-    return md5.hexdigest()
-def H(some):
-    md5 = hashlib.md5()
-    md5.update(some)
-    return md5.digest()
-
+import md5
+def HH(some): return md5.new(some).hexdigest()
+def H(some): return md5.new(some).digest()
 def C(some): return ':'.join(some)
 
 class NonSASL(PlugIn):
@@ -61,15 +54,15 @@ class NonSASL(PlugIn):
 
         if query.getTag('digest'):
             self.DEBUG("Performing digest authentication",'ok')
-            query.setTagData('digest',hashlib.sha224(owner.Dispatcher.Stream._document_attrs['id']+self.password).hexdigest())
+            query.setTagData('digest',sha.new(owner.Dispatcher.Stream._document_attrs['id']+self.password).hexdigest())
             if query.getTag('password'): query.delChild('password')
             method='digest'
         elif query.getTag('token'):
             token=query.getTagData('token')
             seq=query.getTagData('sequence')
             self.DEBUG("Performing zero-k authentication",'ok')
-            hash = hashlib.sha224(hashlib.sha224(self.password).hexdigest()+token).hexdigest()
-            for foo in xrange(int(seq)): hash = hashlib.sha224(hash).hexdigest()
+            hash = sha.new(sha.new(self.password).hexdigest()+token).hexdigest()
+            for foo in xrange(int(seq)): hash = sha.new(hash).hexdigest()
             query.setTagData('hash',hash)
             method='0k'
         else:
@@ -88,7 +81,7 @@ class NonSASL(PlugIn):
     def authComponent(self,owner):
         """ Authenticate component. Send handshake stanza and wait for result. Returns "ok" on success. """
         self.handshake=0
-        owner.send(Node(NS_COMPONENT_ACCEPT+' handshake',payload=[hashlib.sha224(owner.Dispatcher.Stream._document_attrs['id']+self.password).hexdigest()]))
+        owner.send(Node(NS_COMPONENT_ACCEPT+' handshake',payload=[sha.new(owner.Dispatcher.Stream._document_attrs['id']+self.password).hexdigest()]))
         owner.RegisterHandler('handshake',self.handshakeHandler,xmlns=NS_COMPONENT_ACCEPT)
         while not self.handshake:
             self.DEBUG("waiting on handshake",'notify')
