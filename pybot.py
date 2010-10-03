@@ -692,8 +692,8 @@ def presenceHnd(con, prs):
 
 def iqHnd(con, iq):
 	fromjid = iq.getFrom()
-	if user_level(fromjid,fromjid.getStripped())==-100:
-		return
+	#if user_level(fromjid,fromjid.getStripped())==-100:
+	#	return
 	global JCON, BOT_VER
 	if not iq.getType() == 'error':
 		if iq.getTags('query', {}, xmpp.NS_VERSION):
@@ -789,7 +789,7 @@ def start():
 
 	print 'Waiting For Connection...\n'
 
-	con=JCON.connect(server=(CONNECT_SERVER, PORT), secure=0,use_srv=True)
+	con=JCON.connect(server=(CONNECT_SERVER, PORT))
 	if not con:
 		print 'COULDN\'T CONNECT\nSleep for 30 seconds'
 		time.sleep(30)
