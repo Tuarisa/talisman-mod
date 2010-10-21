@@ -76,7 +76,9 @@ def log_get_fp(type, source, (year, month, day, hour, minute, second, weekday, y
 		logdir = logdir[:-1]
 	str_year = str(year)
 	str_month = str(month)
+	if (len(str_month)<2): str_month='0'+str_month
 	str_day = str(day)
+	if (len(str_day)<2): str_day='0'+str_day
 	filename = '.'.join(['/'.join([logdir, source, str_year, str_month, str_day]), 'html'])
 	alt_filename = '.'.join(['/'.join([logdir, source, str_year, str_month, str_day]), '_alt.html'])
 	if not os.path.exists('/'.join([logdir, source, str_year, str_month])):
