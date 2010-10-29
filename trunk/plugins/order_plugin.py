@@ -170,7 +170,7 @@ def order_check_smile(body, gch, jid, nick, ff=0):
 	
 def order_check_longword(body, gch, jid, nick, ff=0):
 	for word in body.split():
-		if len(word)>20 and not body.startswith(u'http:'):
+		if len(word)>20 and not word.startswith(u'http:'):
 			order_stats[gch][jid]['devoice']['time']=time.time()
 			order_stats[gch][jid]['devoice']['cnd']=1
 			order_kick(gch, nick, u'гиппопотомонстросескиппедалофаг')
