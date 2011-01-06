@@ -20,7 +20,9 @@
 order_stats = {}
 order_obscene_raw_words = [u'бляд', u' блят', u' бля ', u' блять ', u' плять ', u' хуй', u' ибал', u' ебал', u'нахуй', u' хуй', u' хуи', u'хуител', u' хуя', u'хуя', u' хую', u' хуе', u' ахуе', u' охуе', u'хуев', u' хер ', u' хер', u'хер', u' пох ', u' нах ', u'писд', u'пизд', u'рizd', u' пздц ', u' еб', u' ёб', u' епана ', u' епать ', u' ипать ', u' выепать ', u' ибаш', u' уеб', u'проеб', u'праеб', u'приеб', u'съеб', u'сьеб', u'взъеб', u'взьеб', u'въеб', u'вьеб', u'выебан', u'перееб', u'недоеб', u'долбоеб', u'долбаеб', u' ниибац', u' неебац', u' неебат', u' ниибат', u' пидар', u' рidаr', u' пидар', u' пидор', u'педор', u'пидор', u'пидарас', u'пидараз', u' педар', u'педри', u'пидри', u' заеп', u' заип', u' заеб', u'ебучий', u'ебучка ', u'епучий', u'епучка ', u' заиба', u'заебан', u'заебис', u' выеб', u'выебан', u' поеб', u' наеб', u' наеб', u'сьеб', u'взьеб', u'вьеб', u' гандон', u' гондон', u'пахуи', u'похуис', u' манда ', u'мандав', u' залупа', u' залупог']
 
-stop_spam_list = [u'cool']
+stop_spam_list = []
+db=eval(read_file('static/spam.txt'))
+stop_spam_list = db.values()
 
 order_obscene_words = []
 
@@ -711,11 +713,37 @@ def get_order_cfg(gch):
 		if not x in GCHCFGS[gch]['filt']:
 			GCHCFGS[gch]['filt'][x]=1
 
+###############################################
+def handler_spam_add(type, source, parameters):
+	if not parameters:
+		reply(type, source, u'ииии?')
+	res=spam_add(source[1],parameters)
+	if res: reply(type, source, u'добавлено')	
+
+def spam_add(gch,phrase=None):
+	DBPATH='static/spam.txt'
+	if check_file(gch,'spam.txt'):
+		spamdb = eval(read_file(DBPATH))
+		for x in range(1, 101):
+			if str(x) in spamdb.keys():
+				continue
+			else:
+				spamdb[str(x)]=phrase
+				write_file(DBPATH, str(spamdb))
+				db=eval(read_file('static/spam.txt'))
+				stop_spam_list = db.values()
+				return True
+		return False
+	else:
+		return None
+#############################################################
+
 register_message_handler(handler_order_message)
 register_join_handler(handler_order_join)
 register_leave_handler(handler_order_leave)
 register_presence_handler(handler_order_presence)
 register_command_handler(handler_order_filt, 'filt', ['админ','мук','все'], 20, 'Включает или отключает определённые фильтры для конференции.\ntime - временной фильтр (не более одного сообщения в 2.2 секунды)\nlen - количественный фильтр (кол-во символов в сообщении не более 1500)\npresence - фильтр презенсов (не более 5 презенсов за 5 минут)\nlike - фильтр одинаковых сообщений (не более 2 одинаковых или очень похожих подряд)\ncaps - фильтр ЗАГЛАВНЫХ букв (не более 9 и не более чем половина сообщения)\nprsstlen - фильтр длинных статусных сообщений (не более 200 символов)\nobscene - фильтр матов\nfly - фильтр полётов (частых входов/выходов в конмату), имеет два режима ban и kick, таймер от 0 до 120 секунд\nkicks - автобан после N киков, параметр cnt - количество киков от 1 до 10\nidle - кик за молчание в общем чате после N секунд, параметр time - кол-во секунд для срабатывания\nlong - фильтрация длинных слов (более 20 букв)\nsmile - фильтр смайликов (не более 3 в сообщении)\nnl - фильтр множественных переносов строк в сообщении и презенсе (не более 10 переносов)', 'filt [фильтр] [режим] [состояние]', ['filt smile 1', 'filt len 0','filt fly mode ban'])
+register_command_handler(handler_spam_add, 'spam+', ['фан','все','тык'], 20, 'Добавить фразу в чёрный спам-список', 'spam+ <фраза>', ['spam+ чики'])
 
 register_stage1_init(get_order_cfg)
 register_stage2_init(order_check_idle)
