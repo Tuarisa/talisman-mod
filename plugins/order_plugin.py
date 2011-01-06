@@ -20,6 +20,8 @@
 order_stats = {}
 order_obscene_raw_words = [u'бляд', u' блят', u' бля ', u' блять ', u' плять ', u' хуй', u' ибал', u' ебал', u'нахуй', u' хуй', u' хуи', u'хуител', u' хуя', u'хуя', u' хую', u' хуе', u' ахуе', u' охуе', u'хуев', u' хер ', u' хер', u'хер', u' пох ', u' нах ', u'писд', u'пизд', u'рizd', u' пздц ', u' еб', u' ёб', u' епана ', u' епать ', u' ипать ', u' выепать ', u' ибаш', u' уеб', u'проеб', u'праеб', u'приеб', u'съеб', u'сьеб', u'взъеб', u'взьеб', u'въеб', u'вьеб', u'выебан', u'перееб', u'недоеб', u'долбоеб', u'долбаеб', u' ниибац', u' неебац', u' неебат', u' ниибат', u' пидар', u' рidаr', u' пидар', u' пидор', u'педор', u'пидор', u'пидарас', u'пидараз', u' педар', u'педри', u'пидри', u' заеп', u' заип', u' заеб', u'ебучий', u'ебучка ', u'епучий', u'епучка ', u' заиба', u'заебан', u'заебис', u' выеб', u'выебан', u' поеб', u' наеб', u' наеб', u'сьеб', u'взьеб', u'вьеб', u' гандон', u' гондон', u'пахуи', u'похуис', u' манда ', u'мандав', u' залупа', u' залупог']
 
+stop_spam_list = [u'cool']
+
 order_obscene_words = []
 
 for word in order_obscene_raw_words:
@@ -83,7 +85,12 @@ def order_check_len_flood(mlen, body, gch, jid, nick, ff=0):
 def order_check_obscene(body, gch, jid, nick, ff=0):
 	body=order_check_obscene_words(body, ff)
 	if body:
-		if ff: return body
+		if ff:
+			for x in stop_spam_list:
+				if body.count(x):
+					order_kick(gch, nick, u'Спамер несчастный!')
+					return True
+			return body
 		order_stats[gch][jid]['devoice']['time']=time.time()
 		order_stats[gch][jid]['devoice']['cnd']=1
 		order_kick(gch, nick, u'нецензурно')
@@ -170,7 +177,7 @@ def order_check_smile(body, gch, jid, nick, ff=0):
 	
 def order_check_longword(body, gch, jid, nick, ff=0):
 	for word in body.split():
-		if len(word)>20 and not word.startswith(u'http:'):
+		if len(word)>20 and not body.startswith(u'http:'):
 			order_stats[gch][jid]['devoice']['time']=time.time()
 			order_stats[gch][jid]['devoice']['cnd']=1
 			order_kick(gch, nick, u'гиппопотомонстросескиппедалофаг')
