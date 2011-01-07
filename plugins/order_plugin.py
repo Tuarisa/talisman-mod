@@ -20,7 +20,7 @@
 order_stats = {}
 order_obscene_raw_words = [u'бляд', u' блят', u' бля ', u' блять ', u' плять ', u' хуй', u' ибал', u' ебал', u'нахуй', u' хуй', u' хуи', u'хуител', u' хуя', u'хуя', u' хую', u' хуе', u' ахуе', u' охуе', u'хуев', u' хер ', u' хер', u'хер', u' пох ', u' нах ', u'писд', u'пизд', u'рizd', u' пздц ', u' еб', u' ёб', u' епана ', u' епать ', u' ипать ', u' выепать ', u' ибаш', u' уеб', u'проеб', u'праеб', u'приеб', u'съеб', u'сьеб', u'взъеб', u'взьеб', u'въеб', u'вьеб', u'выебан', u'перееб', u'недоеб', u'долбоеб', u'долбаеб', u' ниибац', u' неебац', u' неебат', u' ниибат', u' пидар', u' рidаr', u' пидар', u' пидор', u'педор', u'пидор', u'пидарас', u'пидараз', u' педар', u'педри', u'пидри', u' заеп', u' заип', u' заеб', u'ебучий', u'ебучка ', u'епучий', u'епучка ', u' заиба', u'заебан', u'заебис', u' выеб', u'выебан', u' поеб', u' наеб', u' наеб', u'сьеб', u'взьеб', u'вьеб', u' гандон', u' гондон', u'пахуи', u'похуис', u' манда ', u'мандав', u' залупа', u' залупог']
 
-stop_spam_list = []
+global stop_spam_list
 db=eval(read_file('static/spam.txt'))
 stop_spam_list = db.values()
 
@@ -88,10 +88,6 @@ def order_check_obscene(body, gch, jid, nick, ff=0):
 	body=order_check_obscene_words(body, ff)
 	if body:
 		if ff:
-			for x in stop_spam_list:
-				if body.count(x):
-					order_kick(gch, nick, u'Спамер несчастный!')
-					return True
 			return body
 		order_stats[gch][jid]['devoice']['time']=time.time()
 		order_stats[gch][jid]['devoice']['cnd']=1
@@ -187,6 +183,13 @@ def order_check_longword(body, gch, jid, nick, ff=0):
 	if ff: return body
 	return False
 	
+def order_check_spam(body, gch, jid, nick, ff=0):
+	for x in stop_spam_list:
+		if body.count(x):
+			order_kick(gch, nick, u'Спамер несчастный!')
+			return True
+	if ff: return body
+	return False
 
 ####################################################################################################
 
@@ -274,6 +277,11 @@ def handler_order_message(raw, type, source, body):
 							body=order_check_newline(body, groupchat, jid, nick, raw)
 						else:
 							return ''
+					if filt['spam']==1:
+						if body != True:
+							body=order_check_spam(body, groupchat, jid, nick, raw)
+						else:
+							return ''
 					if filt['caps']==1:
 						if body != True:
 							body=order_check_caps(body, groupchat, jid, nick, raw)
@@ -298,6 +306,8 @@ def handler_order_message(raw, type, source, body):
 				if not filt['fltmode']:
 					if filt['long']==1:
 						if order_check_longword(body, groupchat, jid, nick, raw):	return
+					if filt['spam']==1:
+						if order_check_spam(body, groupchat, jid, nick, raw):	return
 					if filt['time']==1:
 						if order_check_time_flood(body, groupchat, jid, nick):	return
 					if filt['len']==1:
@@ -488,6 +498,15 @@ def handler_order_filt(type, source, parameters):
 					GCHCFGS[source[1]]['filt']['caps']=1
 				else:
 					reply(type,source,u'синтакс инвалид')
+			elif parameters[0]=='spam':
+				if parameters[1]=='0':
+					reply(type,source,u'фильтрация спама отключена')
+					GCHCFGS[source[1]]['filt']['spam']=0
+				elif parameters[1]=='1':
+					reply(type,source,u'фильтрация спама включена')
+					GCHCFGS[source[1]]['filt']['spam']=1
+				else:
+					reply(type,source,u'синтакс инвалид')
 			elif parameters[0]=='prsstlen':
 				if parameters[1]=='0':
 					reply(type,source,u'фильтрация длинных статусных сообщений отключена')
@@ -598,7 +617,7 @@ def handler_order_filt(type, source, parameters):
 			else:
 				reply(type,source,u'синтакс инвалид')
 				return
-			save_gch_cfg(source[1])
+			#save_gch_cfg(source[1])
 		else:
 			reply(type,source,u'случилось что-то странное, ткните админа бота')
 	else:
@@ -621,10 +640,15 @@ def handler_order_filt(type, source, parameters):
 		smile=GCHCFGS[source[1]]['filt']['smile']
 		longw=GCHCFGS[source[1]]['filt']['long']
 		fltmode=GCHCFGS[source[1]]['filt']['fltmode']
+		spam=GCHCFGS[source[1]]['filt']['spam']
 		if time:
 			fon.append(u'временная фильтрация сообщений')
 		else:
 			foff.append(u'временная фильтрация сообщений')
+		if spam:
+			fon.append(u'фильтрация по стоп-спам листу')
+		else:
+			foff.append(u'фильтрация по стоп-спам листу')
 		if prs:
 			fon.append(u'временная фильтрация презенсов')
 		else:
@@ -689,7 +713,7 @@ def handler_order_filt(type, source, parameters):
 def get_order_cfg(gch):
 	if not 'filt' in GCHCFGS[gch]:
 		GCHCFGS[gch]['filt']={}
-	for x in ['time','presence','len','like','caps','prsstlen','obscene','kicks','fly','excess','idle','newline','fltmode','smile','long']:
+	for x in ['time','presence','len','like','caps','prsstlen','obscene','kicks','fly','excess','idle','newline','fltmode','smile','long', 'spam']:
 		if x == 'excess':
 			if not x in GCHCFGS[gch]['filt']:
 				GCHCFGS[gch]['filt'][x]={'cond':0, 'mode': 'kick'}
@@ -721,10 +745,11 @@ def handler_spam_add(type, source, parameters):
 	if res: reply(type, source, u'добавлено')	
 
 def spam_add(gch,phrase=None):
+	global stop_spam_list
 	DBPATH='static/spam.txt'
 	if check_file(gch,'spam.txt'):
 		spamdb = eval(read_file(DBPATH))
-		for x in range(1, 101):
+		for x in range(1, 201):
 			if str(x) in spamdb.keys():
 				continue
 			else:
