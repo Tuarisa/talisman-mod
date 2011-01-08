@@ -24,6 +24,7 @@ global stop_spam_list
 db=eval(read_file('static/spam.txt'))
 stop_spam_list = db.values()
 
+
 order_obscene_words = []
 
 for word in order_obscene_raw_words:
@@ -185,9 +186,10 @@ def order_check_longword(body, gch, jid, nick, ff=0):
 	
 def order_check_spam(body, gch, jid, nick, ff=0):
 	for x in stop_spam_list:
-		if body.count(x):
+		spam_re = re.compile(x, re.I)
+		if spam_re.search(body):
 			order_kick(gch, nick, u'Спамер несчастный!')
-			return True
+			return True			
 	if ff: return body
 	return False
 
@@ -795,6 +797,8 @@ def spam_del(gch,phrase=None):
 			try:
 				del spamdb[phrase]
 				write_file(DBPATH, str(spamdb))
+				db=eval(read_file('static/spam.txt'))
+				stop_spam_list = db.values()
 				return True
 			except:
 				return False
@@ -816,7 +820,7 @@ register_join_handler(handler_order_join)
 register_leave_handler(handler_order_leave)
 register_presence_handler(handler_order_presence)
 register_command_handler(handler_order_filt, 'filt', ['админ','мук','все'], 20, 'Включает или отключает определённые фильтры для конференции.\ntime - временной фильтр (не более одного сообщения в 2.2 секунды)\nlen - количественный фильтр (кол-во символов в сообщении не более 1500)\npresence - фильтр презенсов (не более 5 презенсов за 5 минут)\nlike - фильтр одинаковых сообщений (не более 2 одинаковых или очень похожих подряд)\ncaps - фильтр ЗАГЛАВНЫХ букв (не более 9 и не более чем половина сообщения)\nprsstlen - фильтр длинных статусных сообщений (не более 200 символов)\nobscene - фильтр матов\nfly - фильтр полётов (частых входов/выходов в конмату), имеет два режима ban и kick, таймер от 0 до 120 секунд\nkicks - автобан после N киков, параметр cnt - количество киков от 1 до 10\nidle - кик за молчание в общем чате после N секунд, параметр time - кол-во секунд для срабатывания\nlong - фильтрация длинных слов (более 20 букв)\nsmile - фильтр смайликов (не более 3 в сообщении)\nnl - фильтр множественных переносов строк в сообщении и презенсе (не более 10 переносов)', 'filt [фильтр] [режим] [состояние]', ['filt smile 1', 'filt len 0','filt fly mode ban'])
-register_command_handler(handler_spam_add, 'spam+', ['админ','мук','все'], 15, 'Добавить фразу в чёрный спам-список', 'spam+ <фраза>', ['spam+ чики'])
+register_command_handler(handler_spam_add, 'spam+', ['админ','мук','все'], 15, 'Добавить фразу в чёрный спам-список. Можно добавлять не фразы, а регулярные выражения, если Вы не знаете, что это, лучше просто добавьте фразу. ', 'spam+ <фраза>', ['spam+ чики'])
 register_command_handler(handler_spam_del, 'spam-', ['админ','мук','все'], 15, 'Удалить фразу из спам-списка', 'spam+ <номер фразы>', ['spam- 5'])
 register_command_handler(handler_spam_show, 'spam*', ['админ','мук','все'], 15, 'Показать все фразы', 'spam*', ['spam*'])
 register_stage1_init(get_order_cfg)
