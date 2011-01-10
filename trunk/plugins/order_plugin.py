@@ -833,6 +833,7 @@ def spam_show(gch,phrase=None,DBPATH=None):
 #############################################################
 
 def handler_global_spam_add(type, source, parameters):
+	global stop_global_spam_list
 	if not parameters:
 		reply(type, source, u'ииии?')
 	try:
@@ -850,6 +851,7 @@ def handler_global_spam_add(type, source, parameters):
 	if res: reply(type, source, u'добавлено')	
 	
 def handler_global_spam_del(type, source, parameters):
+	global stop_global_spam_list
 	if not parameters:
 		reply(type, source, u'ииии?')
 	res=spam_del(source[1],parameters,'dynamic/spam.txt')
