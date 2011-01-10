@@ -846,7 +846,7 @@ def handler_global_spam_add(type, source, parameters):
 			return False
 	res=spam_add(source[1],parameters,'dynamic/spam.txt')
 	db=eval(read_file('dynamic/spam.txt'))
-	stop_spam_list = db.values()
+	stop_global_spam_list = db.values()
 	if res: reply(type, source, u'добавлено')	
 	
 def handler_global_spam_del(type, source, parameters):
@@ -854,7 +854,7 @@ def handler_global_spam_del(type, source, parameters):
 		reply(type, source, u'ииии?')
 	res=spam_del(source[1],parameters,'dynamic/spam.txt')
 	db=eval(read_file('dynamic/spam.txt'))
-	stop_spam_list = db.values()
+	stop_global_spam_list = db.values()
 	if res: reply(type, source, u'удалено')
 		
 def handler_global_spam_show(type, source, parameters):
