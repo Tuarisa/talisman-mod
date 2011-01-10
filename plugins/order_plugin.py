@@ -21,9 +21,10 @@ order_stats = {}
 order_obscene_raw_words = [u'бляд', u' блят', u' бля ', u' блять ', u' плять ', u' хуй', u' ибал', u' ебал', u'нахуй', u' хуй', u' хуи', u'хуител', u' хуя', u'хуя', u' хую', u' хуе', u' ахуе', u' охуе', u'хуев', u' хер ', u' хер', u'хер', u' пох ', u' нах ', u'писд', u'пизд', u'рizd', u' пздц ', u' еб', u' ёб', u' епана ', u' епать ', u' ипать ', u' выепать ', u' ибаш', u' уеб', u'проеб', u'праеб', u'приеб', u'съеб', u'сьеб', u'взъеб', u'взьеб', u'въеб', u'вьеб', u'выебан', u'перееб', u'недоеб', u'долбоеб', u'долбаеб', u' ниибац', u' неебац', u' неебат', u' ниибат', u' пидар', u' рidаr', u' пидар', u' пидор', u'педор', u'пидор', u'пидарас', u'пидараз', u' педар', u'педри', u'пидри', u' заеп', u' заип', u' заеб', u'ебучий', u'ебучка ', u'епучий', u'епучка ', u' заиба', u'заебан', u'заебис', u' выеб', u'выебан', u' поеб', u' наеб', u' наеб', u'сьеб', u'взьеб', u'вьеб', u' гандон', u' гондон', u'пахуи', u'похуис', u' манда ', u'мандав', u' залупа', u' залупог']
 
 global stop_spam_list
-db=eval(read_file('static/spam.txt'))
-stop_spam_list = db.values()
-
+global stop_global_spam_list
+check_file(file='spam.txt')
+db=eval(read_file('dynamic/spam.txt'))
+stop_global_spam_list = db.values()
 
 order_obscene_words = []
 
@@ -33,6 +34,11 @@ for word in order_obscene_raw_words:
 def order_check_db(gch,jid,nick):
 	if nick in GROUPCHATS[gch]:
 		order_stats[gch][jid]={'kicks': 0, 'devoice': {'cnd': 0, 'time': 0}, 'msgbody': '', 'prstime': {'fly': 0, 'status': 0}, 'prs': {'fly': 0, 'status': 0}, 'msg': 0, 'msgtime': 0, 'flood': 0, 'smile': 0}
+	check_file(gch, 'spam.txt')
+	global stop_spam_list
+	db=eval(read_file('dynamic/'+gch+'/spam.txt'))
+	stop_spam_list = db.values()
+	
 	
 
 def order_check_obscene_words(body, ff=0):
@@ -189,7 +195,12 @@ def order_check_spam(body, gch, jid, nick, ff=0):
 		spam_re = re.compile(x, re.I)
 		if spam_re.search(body):
 			order_kick(gch, nick, u'Спамер несчастный!')
-			return True			
+			return True
+	for x in stop_global_spam_list:
+		spam_re = re.compile(x, re.I)
+		if spam_re.search(body):
+			order_kick(gch, nick, u'Спамер несчастный!')
+			return True	
 	if ff: return body
 	return False
 
@@ -741,23 +752,38 @@ def get_order_cfg(gch):
 
 ###############################################
 def handler_spam_add(type, source, parameters):
+	global stop_global_spam_list
+	global stop_spam_list
 	if not parameters:
 		reply(type, source, u'ииии?')
+	try:
+		re.compile(parameters)
+	except:
+		reply(type, source, u'Фигня этот ваш регексп')
+		return False
 	for x in stop_spam_list:
 		if parameters.count(x):
 			reply(type, source, u'такое уже есть')
 			return False
-	res=spam_add(source[1],parameters)
+	for x in stop_global_spam_list:
+		if parameters.count(x):
+			reply(type, source, u'такое уже есть')
+			return False	
+	res=spam_add(source[1],parameters,'dynamic/'+source[1]+'/spam.txt')
+	db=eval(read_file('dynamic/'+source[1]+'/spam.txt'))
+	stop_spam_list = db.values()
 	if res: reply(type, source, u'добавлено')	
 	
 def handler_spam_del(type, source, parameters):
 	if not parameters:
 		reply(type, source, u'ииии?')
-	res=spam_del(source[1],parameters)
+	res=spam_del(source[1],parameters,'dynamic/'+source[1]+'/spam.txt')
+	db=eval(read_file('dynamic/'+source[1]+'/spam.txt'))
+	stop_spam_list = db.values()
 	if res: reply(type, source, u'удалено')
 		
 def handler_spam_show(type, source, parameters):
-	rep,res=u'',spam_show(source[1])
+	rep,res=u'',spam_show(source[1],DBPATH='dynamic/'+source[1]+'/spam.txt')
 	if res:
 		res=sorted(res.items(),lambda x,y: int(x[0]) - int(y[0]))
 		for num,phrase in res:
@@ -766,9 +792,7 @@ def handler_spam_show(type, source, parameters):
 	else:
 		reply(type,source,u'нет стоп-спам фраз')
 
-def spam_add(gch,phrase=None):
-	global stop_spam_list
-	DBPATH='static/spam.txt'
+def spam_add(gch,phrase=None,DBPATH=None):
 	if check_file(gch,'spam.txt'):
 		spamdb = eval(read_file(DBPATH))
 		for x in range(1, 201):
@@ -777,16 +801,12 @@ def spam_add(gch,phrase=None):
 			else:
 				spamdb[str(x)]=phrase
 				write_file(DBPATH, str(spamdb))
-				db=eval(read_file('static/spam.txt'))
-				stop_spam_list = db.values()
 				return True
 		return False
 	else:
 		return None
 		
-def spam_del(gch,phrase=None):
-	global stop_spam_list
-	DBPATH='static/spam.txt'
+def spam_del(gch,phrase=None,DBPATH=None):
 	if check_file(gch,'spam.txt'):
 		spamdb = eval(read_file(DBPATH))
 		if phrase=='0':
@@ -797,22 +817,56 @@ def spam_del(gch,phrase=None):
 			try:
 				del spamdb[phrase]
 				write_file(DBPATH, str(spamdb))
-				db=eval(read_file('static/spam.txt'))
-				stop_spam_list = db.values()
 				return True
 			except:
 				return False
 	else:
 		return None
 		
-def spam_show(gch,phrase=None):
-	global stop_spam_list
-	DBPATH='static/spam.txt'
+def spam_show(gch,phrase=None,DBPATH=None):
 	if check_file(gch,'spam.txt'):
 		spamdb = eval(read_file(DBPATH))
 		return spamdb
 	else:
-		return None	
+		return None
+		
+#############################################################
+
+def handler_global_spam_add(type, source, parameters):
+	if not parameters:
+		reply(type, source, u'ииии?')
+	try:
+		re.compile(parameters)
+	except:
+		reply(type, source, u'Фигня этот ваш регексп')	
+		return False
+	for x in stop_global_spam_list:
+		if parameters.count(x):
+			reply(type, source, u'такое уже есть')
+			return False
+	res=spam_add(source[1],parameters,'dynamic/spam.txt')
+	db=eval(read_file('dynamic/spam.txt'))
+	stop_spam_list = db.values()
+	if res: reply(type, source, u'добавлено')	
+	
+def handler_global_spam_del(type, source, parameters):
+	if not parameters:
+		reply(type, source, u'ииии?')
+	res=spam_del(source[1],parameters,'dynamic/spam.txt')
+	db=eval(read_file('dynamic/spam.txt'))
+	stop_spam_list = db.values()
+	if res: reply(type, source, u'удалено')
+		
+def handler_global_spam_show(type, source, parameters):
+	rep,res=u'',spam_show(source[1],DBPATH='dynamic/spam.txt')
+	if res:
+		res=sorted(res.items(),lambda x,y: int(x[0]) - int(y[0]))
+		for num,phrase in res:
+			rep+=num+u') '+phrase+u'\n'
+		reply(type,source,rep.strip())
+	else:
+		reply(type,source,u'нет стоп-спам фраз')
+
 #############################################################
 
 register_message_handler(handler_order_message)
@@ -823,5 +877,8 @@ register_command_handler(handler_order_filt, 'filt', ['админ','мук','в�
 register_command_handler(handler_spam_add, 'spam+', ['админ','мук','все'], 15, 'Добавить фразу в чёрный спам-список. Можно добавлять не фразы, а регулярные выражения, если Вы не знаете, что это, лучше просто добавьте фразу. ', 'spam+ <фраза>', ['spam+ чики'])
 register_command_handler(handler_spam_del, 'spam-', ['админ','мук','все'], 15, 'Удалить фразу из спам-списка', 'spam+ <номер фразы>', ['spam- 5'])
 register_command_handler(handler_spam_show, 'spam*', ['админ','мук','все'], 15, 'Показать все фразы', 'spam*', ['spam*'])
+register_command_handler(handler_global_spam_add, 'gspam+', ['админ','мук','все'], 40, 'Добавить фразу в чёрный спам-список. Можно добавлять не фразы, а регулярные выражения, если Вы не знаете, что это, лучше просто добавьте фразу. ', 'spam+ <фраза>', ['spam+ чики'])
+register_command_handler(handler_global_spam_del, 'gspam-', ['админ','мук','все'], 40, 'Удалить фразу из спам-списка', 'spam+ <номер фразы>', ['spam- 5'])
+register_command_handler(handler_global_spam_show, 'gspam*', ['админ','мук','все'], 30, 'Показать все фразы', 'spam*', ['spam*'])
 register_stage1_init(get_order_cfg)
 register_stage2_init(order_check_idle)
